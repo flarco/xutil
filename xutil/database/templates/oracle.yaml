@@ -1,0 +1,79 @@
+core:
+  drop_table: drop table {} cascade constraints purge
+  create_table: create table {table} ({col_types})
+  create_index: create index {index} on {table} ({cols})
+  insert: INSERT {options} INTO {table} ({names}) VALUES ({values})
+  insert_option: /*+ APPEND NOLOGGING */
+  replace: |
+    merge into {table} tgt
+    USING (SELECT {name_values}
+            FROM dual) src
+    ON ({src_tgt_condition})
+    WHEN MATCHED THEN
+      UPDATE SET {set_fields}
+    WHEN NOT MATCHED THEN
+        insert ({names}) values ({values})
+  ddl: |
+    select to_char(dbms_metadata.get_ddl(
+    upper('{obj_type}'),upper('{table}'),upper('{schema}'))) as ddl
+    from dual
+
+analysis:
+  field_stat_deep: |
+    select
+      '{schema}' as schema_nm,
+      '{table}' as table_nm,
+      '{field}' as field,
+      '{type}' as type,
+      count(*) as tot_cnt,
+      count({field}) as f_cnt,
+      count(*) - count({field}) as f_null_cnt,
+      round((count(*) - count({field})) / count(*)*100,1) as f_null_prct,
+      count(distinct {field}) as f_dstct_cnt,
+      round(count(distinct {field}) / count(*)*100,1) as f_dstct_prct,
+      count(*) - count(distinct {field}) as f_dup_cnt,
+      cast(min({field}) as varchar(4000)) as f_min,
+      cast(max({field}) as varchar(4000)) as f_max,
+      min(length({field})) as f_min_len,
+      max(length({field})) as f_max_len
+    from {schema}.{table}
+
+routine:
+  date_trunc_min_max: |
+    select
+      {fields}
+    from {table}
+    where {where}
+      (({date_field_trunc} >= date '{min_val}'
+      and {date_field_trunc} <= date '{max_val}')
+    {or_null})
+
+function:
+  truncate_f: trunc({field})
+  truncate_datef: trunc({field})
+  str_utf8: convert({field},'US7ASCII','WE8ISO8859P1')
+
+native_type_map:
+  number: "integer"
+  varchar: "string"
+  varchar2: "string"
+  long_string: "string"
+  nchar: "string"
+  fixed_char: "string"
+  datetime: "datetime"
+  timestamp: "datetime"
+  native_float: "double"
+  lob: "text"
+  clob: "text"
+  blob: "text"
+  nclob: "text"
+  binary: "text"
+
+general_type_map:
+  string: "varchar2()"
+  integer: "number()"
+  decimal: "number()"
+  date: "date"
+  datetime: "date"
+  timestamp: "date"
+  text: "nclob"

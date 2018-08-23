@@ -1,1 +1,0 @@
--- Get a table's fields and type

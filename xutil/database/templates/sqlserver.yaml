@@ -1,0 +1,24 @@
+analysis:
+  chars: |
+    select
+      '{schema}' as schema_nm,
+      '{table}' as table_nm,
+      '{field}' as field,
+      sum(case when patindex ('%\n%', {field}) !=0 then 1 else 0 end) as cnt_nline,
+      sum(case when patindex ('%\t%', {field}) !=0 then 1 else 0 end) as cnt_tab,
+      sum(case when patindex ('%,%', {field}) !=0 then 1 else 0 end) as cnt_comma,
+      sum(case when patindex ('%"%', {field}) !=0 then 1 else 0 end) as cnt_dquote
+    from {schema}.{table}
+
+function:
+  truncate_f: round({field}, 2, 1)
+  truncate_datef: CONVERT(DATETIME, CONVERT(DATE, {field}))
+
+general_type_map:
+  string: "varchar2()"
+  integer: "int()"
+  decimal: "number()"
+  date: "date"
+  datetime: "date"
+  timestamp: "datetime"
+  text: "clob"
