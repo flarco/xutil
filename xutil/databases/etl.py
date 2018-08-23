@@ -21,12 +21,12 @@ from xutil.diskio import read_yaml, read_file, write_csv, write_csvs, write_json
 from xutil.web import send_email_exchange
 import xutil.parallelism as parallelism
 
-from xutil.database.base import (
+from xutil.databases.base import (
   get_conn,
   DBConn)
 
 
-from xutil.database.spark import (
+from xutil.databases.spark import (
   Spark,
   SparkConn,
 )

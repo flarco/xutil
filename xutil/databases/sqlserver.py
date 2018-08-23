@@ -1,4 +1,4 @@
-from xutil.database.base import DBConn
+from xutil.databases.base import DBConn
 from xutil.helpers import struct
 
 
