@@ -28,9 +28,9 @@ setup(
     "python-socketio",
 
     # pyhive
-    "thrift",
+    # "thrift",
     # "sasl", # need sasl.h library
-    "thrift_sasl",
+    # "thrift_sasl",
   ],
   classifiers=[
     'Programming Language :: Python :: 2',
