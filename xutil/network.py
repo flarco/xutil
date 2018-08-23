@@ -7,7 +7,10 @@ HDFS
 import datetime
 import socket
 import sys
-from .helpers import (log, slog, elog, Status, get_exception_message, now)
+from .helpers import (log, slog, elog, get_exception_message, now)
+
+import halo
+Status = halo.Halo
 
 
 class Server(object):

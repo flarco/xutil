@@ -17,14 +17,6 @@ try:
 except ImportError:
   color_enabled = False
 
-try:
-  import halo
-  Status = halo.Halo
-  status = Status(text='', spinner='dots')
-except ImportError:
-  Status = None
-  status = None
-
 ### LAMBDAS ############################
 
 get_rec = lambda row, headers: struct({h.lower():row[i] for i,h in enumerate(headers)})
@@ -97,10 +89,8 @@ try:
 
 except:
 
-  def log(text, color='white', show_time=True, new_line=True, use_halo=False):
+  def log(text, color='white', show_time=True, new_line=True):
     """Print to stdout"""
-    new_line = False if use_halo else new_line
-
     if color_enabled:
       time_str = now_str() + Fore.MAGENTA + ' -- ' if show_time else ''
       color_map = dict(
@@ -118,13 +108,8 @@ except:
       time_str = now_str() + ' -- ' if show_time else ''
       line = '{}{}{}'.format(time_str, text, '\n' if new_line else '')
 
-    if use_halo:
-      # status.start()
-      status.text = line
-      # status.stop()
-    else:
-      sys.stdout.write(line)
-      sys.stdout.flush()
+    sys.stdout.write(line)
+    sys.stdout.flush()
 
   elog = lambda text, show_time=True: log(text, color='red', show_time=show_time)
   slog = lambda text, show_time=True: log(text, color='green', show_time=show_time)

@@ -3,7 +3,7 @@
 Threads
 Multiprocessing
 '''
-from .helpers import (log, slog, elog, Status, get_exception_message)
+from .helpers import (log, slog, elog, get_exception_message)
 
 from collections import (
   OrderedDict,
