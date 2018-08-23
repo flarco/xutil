@@ -15,7 +15,7 @@ from xutil.helpers import (
   get_databases,
   get_kw,
   get_db_profile,
-  Status, struct)
+  struct)
 from xutil.diskio import read_yaml, read_file, write_csv, write_csvs, write_jsonl, write_jsonls
 
 from xutil.web import send_email_exchange
