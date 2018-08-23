@@ -6,6 +6,12 @@ http://sherifsoliman.com/2016/09/30/Python-package-with-GitHub-PyPI/
 
 This link displayed how to do this back with Youtube.
 
+# Install
+
+```
+pip install git+git://github.com/flarco/xutil.git
+```
+
 # Database
 
 Why not use SQLAlchemy (SA)? http://docs.sqlalchemy.org/en/latest/faq/performance.html#i-m-inserting-400-000-rows-with-the-orm-and-it-s-really-slow
@@ -76,9 +82,3 @@ https://github.com/tartley/colorama/blob/master/setup.py
   - SQlite
     -X JDBC (ability to use SQL server from Linux)
     -X Spark JDBC
-
-# Install
-
-```
-pip install git+git://github.com/flarco/xutil.git
-```
