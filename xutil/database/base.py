@@ -16,8 +16,8 @@ from multiprocessing import Queue, Process
 
 from xutil.helpers import (log, elog, slog, get_exception_message, struct, now,
                            get_databases, get_dir_path, get_profile,
-                           get_variables, file_exists, str_rmv_indent, ptable,
-                           Status)
+                           get_variables, file_exists, str_rmv_indent, ptable
+                           )
 from xutil.diskio import read_yaml, write_csvs
 
 conns = {}
