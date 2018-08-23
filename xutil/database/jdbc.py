@@ -1,5 +1,5 @@
 import os
-from xutil.databases.base import DBConn
+from xutil.database.base import DBConn
 from xutil.helpers import get_dir_path, slog
 
 

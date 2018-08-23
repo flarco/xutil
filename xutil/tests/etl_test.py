@@ -5,7 +5,7 @@ from xutil import log
 
 def test_db_table_to_ff_stream():
   from xutil import get_conn
-  from xutil.databases.etl import db_table_to_ff_stream
+  from xutil.database.etl import db_table_to_ff_stream
   conn = get_conn('ORCL_XENIAL')
   csv_path = db_table_to_ff_stream(
     conn, 'HR.EMPLOYEES', 'HIRE_DATE', out_folder='/tmp', gzip=False)
@@ -35,7 +35,7 @@ def stream_insert(args):
 
 def test_db_todb_stream():
   from xutil import get_conn
-  from xutil.databases.etl import get_sql_table_split
+  from xutil.database.etl import get_sql_table_split
   from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
   import datetime
 
@@ -64,7 +64,7 @@ def test_db_todb_stream():
 
 
 def test_db_to_hive():
-  from xutil.databases.etl import db_table_to_ff_stream, db_to_db
+  from xutil.database.etl import db_table_to_ff_stream, db_to_db
 
   # Select from Oracle
   # Create into Hive via HDFS

@@ -6,7 +6,7 @@
 import sys
 from unittest import TestCase, main
 from copy import deepcopy
-from xutil.databases.base import get_conn
+from xutil.database.base import get_conn
 from xutil.helpers import get_profile, get_databases, elog
 from xutil.diskio import read_yaml
 

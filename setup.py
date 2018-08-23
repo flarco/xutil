@@ -1,4 +1,4 @@
-from distutils.core import setup
+from distutils.core import setup, find_packages
 
 setup(
   name='xutil',
@@ -10,6 +10,8 @@ setup(
   url='https://github.com/flarco/xutil',
   download_url='https://github.com/sheriferson/simplestatistics/tarball/0.2.5',
   keywords=['xutil'],
+  packages=find_packages(exclude=['tests']),
+  include_package_data=True,
   install_requires=[
     "jmespath",
     "jsonlines",

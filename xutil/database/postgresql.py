@@ -1,5 +1,5 @@
 import datetime, csv
-from xutil.databases.base import DBConn
+from xutil.database.base import DBConn
 from xutil.helpers import (get_exception_message, now, log, struct,
                            is_gen_func, isnamedtupleinstance, get_dir_path)
 from xutil.diskio import read_yaml, read_file, write_jsonl, read_jsonl

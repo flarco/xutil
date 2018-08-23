@@ -2,11 +2,11 @@ import datetime, os, sys, time, psutil, re
 from collections import OrderedDict, namedtuple
 import findspark, socket
 
-from xutil.databases.base import get_conn
-from xutil.databases.hive import HiveConn, Beeline
-from xutil.databases.oracle import OracleConn
-from xutil.databases.postgresql import PostgreSQLConn
-from xutil.databases.sqlite import SQLiteConn
+from xutil.database.base import get_conn
+from xutil.database.hive import HiveConn, Beeline
+from xutil.database.oracle import OracleConn
+from xutil.database.postgresql import PostgreSQLConn
+from xutil.database.sqlite import SQLiteConn
 from xutil.helpers import get_exception_message, now, log, struct, slog, get_profile, get_db_profile, get_kw
 from xutil.diskio import read_yaml, write_jsonl, read_jsonl, get_path_size
 
@@ -149,7 +149,7 @@ class Spark:
     return sc, spark, proc
 
   def _get_jar_paths(self, profile):
-    from xutil.databases.jdbc import get_jar_path
+    from xutil.database.jdbc import get_jar_path
     if 'drivers' not in profile:
       log(Exception('"drivers" key not in profile!'))
       return
