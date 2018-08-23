@@ -11,7 +11,6 @@ setup(
   download_url='https://github.com/sheriferson/simplestatistics/tarball/0.2.5',
   keywords=['xutil'],
   install_requires=[
-    "yaml",
     "jmespath",
     "jsonlines",
     "paramiko",

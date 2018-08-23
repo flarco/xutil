@@ -1,4 +1,4 @@
-# n1slutil
+# xutil
 
 This will be a Python package containing all the utility functions and libraries that are commonly used.
 
@@ -76,3 +76,9 @@ https://github.com/tartley/colorama/blob/master/setup.py
   - SQlite
     -X JDBC (ability to use SQL server from Linux)
     -X Spark JDBC
+
+# Install
+
+```
+pip install git+git://github.com/flarco/xutil.git
+```
