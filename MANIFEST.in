@@ -1,2 +1,2 @@
 recursive-include xutil/database *
-recursive-exclude xutil/tests
+recursive-exclude xutil/tests *
