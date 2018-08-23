@@ -1,1 +1,2 @@
-recursive-include xutil/database
+recursive-include xutil/database xutil/database/jars xutil/database/templates
+exclude xutil/tests
