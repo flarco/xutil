@@ -2,7 +2,7 @@ from distutils.core import setup, find_packages
 
 setup(
   name='xutil',
-  packages=['xutil'],
+  # packages=['xutil'],
   version='0.0.1',
   description='Extra Useful Utilities.',
   author='Fritz Larco',
