@@ -22,6 +22,7 @@ try:
   Status = halo.Halo
   status = Status(text='', spinner='dots')
 except ImportError:
+  Status = None
   status = None
 
 ### LAMBDAS ############################

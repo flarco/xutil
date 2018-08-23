@@ -17,12 +17,13 @@ setup(
     "redis",
     "cx_Oracle",
     "pymongo",
-    "jaydebeapi",
+    "jaydebeapi",  # needs gcc and g++ to be installed
     "requests",
     "pyspark",
     "hdfs",
     "findspark",
     "sqlalchemy",
+    "halo",
 
     # web
     "python-socketio",
