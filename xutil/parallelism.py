@@ -3,7 +3,11 @@
 Threads
 Multiprocessing
 '''
-from .helpers import (log, slog, elog, get_exception_message)
+import os
+from .helpers import (log, slog, elog, get_exception_message, now,
+                      ndelta_seconds, get_home_path, cleanup_pid, register_pid,
+                      get_pid_path)
+from .diskio import (write_file, read_file)
 
 from collections import (
   OrderedDict,
@@ -13,9 +17,124 @@ from threading import (
   Thread,
   Lock,
 )
+from multiprocessing import Process
+from multiprocessing.queues import (Queue)
+
 all_threads = OrderedDict()
 all_processes = OrderedDict()
 th_lock = Lock()
+
+
+def pipe_post(pipe, obj):
+  "Send object through multiprocessing Pipe and wait for response"
+
+
+class Pipe:
+  def __init__(self):
+    import multiprocessing
+    self.parent, self.child = multiprocessing.Pipe()
+
+  def emit_to_parent(self, obj):
+    "Send object through multiprocessing Pipe and wait for response"
+    self.child.send(obj)
+    return self.child.recv()
+
+  def emit_to_child(self, obj):
+    "Send object through multiprocessing Pipe and wait for response"
+    self.parent.send(obj)
+    return self.parent.recv()
+
+  def send_to_parent(self, obj):
+    "Send object through multiprocessing Pipe"
+    self.child.send(obj)
+
+  def send_to_child(self, obj):
+    "Send object through multiprocessing Pipe"
+    self.parent.send(obj)
+
+  def recv_from_parent(self, timeout=-1):
+    "Receive object through multiprocessing Pipe. timeout in sec. timeout=-1 means wait forever."
+    s_t = now()
+    if timeout == -1:
+      return self.child.recv()
+    elif timeout == 0:
+      if self.child.poll():
+        return self.child.recv()
+    else:
+      while 1:
+        if self.child.poll():
+          return self.child.recv()
+        elif ndelta_seconds(s_t) <= timeout:
+          break
+      return None
+
+  def recv_from_child(self, timeout=-1):
+    "Receive object through multiprocessing Pipe. timeout in sec. timeout=-1 means wait forever."
+    s_t = now()
+    if timeout == -1:
+      return self.parent.recv()
+    elif timeout == 0:
+      if self.parent.poll():
+        return self.parent.recv()
+    else:
+      while 1:
+        if self.parent.poll():
+          return self.parent.recv()
+        elif ndelta_seconds(s_t) <= timeout:
+          break
+      return None
+
+
+class Worker:
+  kwargs_reserved = ['worker']
+
+  def __init__(self,
+               name,
+               fn,
+               log=log,
+               args=[],
+               kwargs={},
+               start=False,
+               pid_folder=None):
+    self.name = name
+    self.pipe = Pipe()
+    self.fn = fn
+    self.log = log
+    self.args = args
+    self.kwargs = kwargs
+    self.started = False
+    pid_folder = pid_folder if pid_folder else get_home_path()
+    self.pid_file = get_pid_path(name, pid_folder)
+    self.status = None
+
+    for key in self.kwargs_reserved:
+      if key in kwargs:
+        log('kwargs = {}'.format(kwargs))
+        raise Exception(
+          'Cannot use reserved word "{}" in kwargs for worker {}'.format(
+            key, name))
+
+    self.kwargs['worker'] = self
+    self.process = Process(target=fn, args=self.args, kwargs=self.kwargs)
+    self.process.name = name
+
+    if start:
+      self.start()
+
+  def start(self):
+    # kill existing PID
+    # cleanup_pid(self.pid_file)
+
+    self.process.start()
+    self.started = now()
+    self.pid = self.process.pid
+    register_pid(self.pid_file, self.pid)
+
+  def stop(self):
+    self.process.terminate()
+
+    # delete pid file
+    cleanup_pid(self.pid_file, halt_if_running=False)
 
 
 def kill_processes(name):

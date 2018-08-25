@@ -3,6 +3,7 @@ core:
   create_table: create table {table} ({col_types})
   create_index: create index {index} on {table} ({cols})
   insert: insert into {table} ({names}) values ({values})
+  update: update {table} set {set_fields} where {pk_fields_equal}
 
 analysis:
   # table level
@@ -251,6 +252,9 @@ routine:
 function:
   replace: replace({string_expr}, {to_replace}, {replacement})
   str_utf8: { field }
+
+variables:
+  tmp_folder: /tmp
 
 # native to general
 native_type_map:

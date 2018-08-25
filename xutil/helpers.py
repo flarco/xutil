@@ -1,16 +1,14 @@
 # General Helpers Lib
-import datetime
-import json
-import logging
-import os
-import re
+import datetime, time
+import json, atexit
+import os, signal
+import re, traceback
 import sys
 from collections import namedtuple, OrderedDict
 from decimal import Decimal
 from pathlib import Path
 
 import dateutil
-
 try:
   from colorama import Fore, Back, Style
   color_enabled = True
@@ -21,6 +19,16 @@ except ImportError:
 
 get_rec = lambda row, headers: struct({h.lower():row[i] for i,h in enumerate(headers)})
 now = lambda: datetime.datetime.now()
+epoch = lambda: int(time.time())
+epoch_mil = lambda: int(time.time() * 1000)
+now_plus = lambda **kwargs: datetime.datetime.now() + datetime.timedelta(**kwargs)
+now_minus = lambda **kwargs: datetime.datetime.now() - datetime.timedelta(**kwargs)
+tdelta_seconds = lambda first, second: (first - second).total_seconds()
+tdelta_minutes = lambda first, second: (first - second).total_seconds() / 60
+tdelta_hours = lambda first, second: (first - second).total_seconds() / 60 / 60
+tdelta_days = lambda first, second: (first - second).total_seconds() / 60 / 60 / 24
+ndelta_seconds = lambda past: tdelta_seconds(now(), past)  # now delta seconds
+ndelta_minutes = lambda past: tdelta_minutes(now(), past)  # now delta minutes
 now_str = lambda: datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 now_file_str = lambda: datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 today_str = lambda: datetime.datetime.now().strftime('%Y%m%d')
@@ -32,24 +40,79 @@ get_kw = lambda k, deflt, kwargs: kwargs[k] if k in kwargs else deflt
 
 get_script_path = lambda: os.path.dirname(os.path.realpath(sys.argv[0]))
 get_dir_path = lambda f=__file__: os.path.dirname(f)
+get_home_path = lambda: os.path.expanduser("~")
 file_exists = lambda p: Path(p).exists()
+kill_pid = lambda pid: os.kill(pid, signal.SIGTERM)
+get_pid_path = lambda name=__file__, folder=get_home_path(): '{}/.{}.PID'.format(folder, name)
 
 elog = lambda text, show_time=True: log(text, color='red', show_time=show_time)
 slog = lambda text, show_time=True: log(text, color='green', show_time=show_time)
 
 ## LOGGING ############################
 
-# Create a logger object.
-logger = logging.getLogger(__name__)
-
 try:
   # https://pypi.org/project/coloredlogs/
   # https://coloredlogs.readthedocs.io/en/latest/api.html#changing-the-log-format
   os.environ[
     'COLOREDLOGS_LOG_FORMAT'] = '[%(hostname)s] %(asctime)s %(levelname)s | %(message)s'
-  os.environ['COLOREDLOGS_LOG_FORMAT'] = '%(asctime)s | %(message)s'
+  os.environ['COLOREDLOGS_LOG_FORMAT'] = '%(asctime)s -- %(message)s'
+  os.environ['COLOREDLOGS_LOG_FORMAT'] = '%(asctime) s%(sep) s%(message)s'
 
-  import coloredlogs
+  import coloredlogs, verboselogs
+  logger = verboselogs.VerboseLogger(__name__)
+
+  coloredlogs.DEFAULT_FIELD_STYLES = {
+    'asctime': {
+      'color': 'white'
+    },
+    'sep': {
+      'color': 'magenta'
+    },
+    'hostname': {
+      'color': 'magenta'
+    },
+    'levelname': {
+      'color': 'black',
+      'bold': True
+    },
+    'name': {
+      'color': 'blue'
+    },
+    'programname': {
+      'color': 'cyan'
+    }
+  }
+
+  coloredlogs.DEFAULT_LEVEL_STYLES = {
+    'critical': {
+      'color': 'red',
+      'bold': True
+    },
+    'debug': {
+      'color': 'green'
+    },
+    'error': {
+      'color': 'red'
+    },
+    'info': {},
+    'notice': {
+      'color': 'magenta'
+    },
+    'spam': {
+      'color': 'green',
+      'faint': True
+    },
+    'success': {
+      'color': 'green',
+      'bold': True
+    },
+    'verbose': {
+      'color': 'blue'
+    },
+    'warning': {
+      'color': 'yellow'
+    }
+  }
   # By default the install() function installs a handler on the root logger,
   # this means that log messages from your code and log messages from the
   # libraries that you use will all show up on the terminal.
@@ -61,35 +124,55 @@ try:
   coloredlogs.install(level='DEBUG', logger=logger)
 
   def log(text, color='white', level='INFO', **kwargs):
-    level = 'ERROR' if color == 'red' else level
-    level = 'WARNING' if color == 'yellow' else level
-    level = 'SUCCESS' if color == 'green' else level
+    extra = dict(sep=' -- ')
+    level = 'ERROR' if color in ('red', 'r') else level
+    level = 'WARNING' if color in ('yellow', 'y') else level
+    level = 'SUCCESS' if color in ('green', 'g') else level
+    level = 'NOTICE' if color in ('magenta', 'm') else level
 
     if isinstance(text, Exception):
-      level = 'ERROR'
+      level = 'CRITICAL'
       error = text
-      try:
-        raise (error)
-      except:
-        text = get_exception_message()
+      text = str(error) + '\n' + ''.join(
+        traceback.format_exception(
+          etype=type(error), value=error, tb=error.__traceback__))
 
-    if level == 'ERROR':
-      logger.error(text)
+    elif color == 'white':
+      text_ = str(text)
+      if text_.startswith('~'):
+        level = 'ERROR'
+        text = text_[1:]
+      if text_.startswith('-'):
+        level = 'WARNING'
+        text = text_[1:]
+      if text_.startswith('+'):
+        level = 'SUCCESS'
+        text = text_[1:]
+      if text_.startswith('*'):
+        level = 'NOTICE'
+        text = text_[1:]
+
+    if level == 'CRITICAL':
+      logger.critical(text, extra=extra)
+    elif level == 'ERROR':
+      logger.error(text, extra=extra)
     elif level == 'WARNING':
-      logger.warning(text)
+      logger.warning(text, extra=extra)
     elif level == 'DEBUG':
-      logger.debug(text)
-    # elif level == 'SUCCESS':
-    #   logger.success(text)
+      logger.debug(text, extra=extra)
+    elif level == 'SUCCESS':
+      logger.success(text, extra=extra)
+    elif level == 'NOTICE':
+      logger.notice(text, extra=extra)
     else:
-      logger.info(text)
+      logger.info(text, extra=extra)
 
   elog = lambda text, show_time=True: log(text, level='ERROR', show_time=show_time)
   slog = lambda text, show_time=True: log(text, level='SUCCESS', show_time=show_time)
 
 except:
 
-  def log(text, color='white', show_time=True, new_line=True):
+  def log(text, color='white', show_time=True, new_line=True, **kwargs):
     """Print to stdout"""
     if color_enabled:
       time_str = now_str() + Fore.MAGENTA + ' -- ' if show_time else ''
@@ -101,6 +184,17 @@ except:
         magenta=Fore.MAGENTA,
         white=Fore.WHITE,
       )
+      text = str(text)
+      if color == 'white':
+        if text.startswith('-'):
+          color = 'yellow'
+          text = text[1:]
+        if text.startswith('+'):
+          color = 'green'
+          text = text[1:]
+        if text.startswith('*'):
+          color = 'magenta'
+          text = text[1:]
       line = '{}{}{}'.format(
         time_str, color_map[color.lower()] + str(text) + Style.RESET_ALL, '\n'
         if new_line else '')
@@ -113,6 +207,39 @@ except:
 
   elog = lambda text, show_time=True: log(text, color='red', show_time=show_time)
   slog = lambda text, show_time=True: log(text, color='green', show_time=show_time)
+
+
+def kill_pid(pid):
+  if os.getpid() == pid:
+    return
+  try:
+    os.kill(pid, signal.SIGTERM)
+  except ProcessLookupError:
+    pass
+
+
+def register_pid(pid_file, pid=None, halt_if_running=True, clean_atexit=True):
+  "Register PID and verify already running state"
+  from .diskio import write_file
+  pid = pid if pid else os.getpid()
+  cleanup_pid(pid_file, halt_if_running)
+  write_file(pid_file, str(pid))
+  if clean_atexit:
+    atexit.register(cleanup_pid, pid_file, halt_if_running=False)
+
+
+def cleanup_pid(pid_file, halt_if_running=True):
+  "Cleans up old PID file located in home folder"
+  from .diskio import read_file
+  import psutil
+
+  if os.path.exists(pid_file):
+    old_pid = int(read_file(pid_file).rstrip())
+    if halt_if_running and psutil.pid_exists(old_pid):
+      raise Exception('PID {} still running! -> {}'.format(old_pid, pid_file))
+    kill_pid(old_pid)
+    os.remove(pid_file)
+    # log('Cleaned Up Old PID {}'.format(old_pid))
 
 
 def get_exception_message(append_message='', raw=False):
@@ -196,14 +323,20 @@ def load_profile():
   return dict_
 
 
-def get_variables():
-  dd = get_profile()
-  return dd['variables'] if 'variables' in dd else {}
+def get_variables(profile=None):
+  profile = profile if profile else get_profile()
+  if 'variables' in profile:
+    return profile['variables']
+  else:
+    return {}
 
 
-def get_databases():
-  dd = get_profile()
-  return dd['databases'] if 'databases' in dd else {}
+def get_databases(profile=None):
+  profile = profile if profile else get_profile()
+  if 'databases' in profile:
+    return profile['databases']
+  else:
+    raise Exception("Key 'databases' not in profile!")
 
 
 def get_db_profile(db_name):

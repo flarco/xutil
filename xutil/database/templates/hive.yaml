@@ -29,6 +29,10 @@ functions:
   replace: regexp_replace({string_exp}, {to_replace}, {replacement})
   truncate_datef: date({field})
 
+variables:
+  beeline_cmd: beeline -u "{url}" --outputformat=tsv --nullemptystring=true --incremental=true -e "{sql}" | sed "s/\\"/\\"\\"/g" | sed "s/'\\t'/\\",\\"/g" | sed "s/^'/\\"/g" | sed "s/'$/\\"/g"
+  hive_cmd: hive -e "{sql}" | sed "s/\\"/\\"\\"/g" | sed "s/\\t/\\",\\"/g" | sed "s/^/\\"/g" | sed "s/$/\\"/g" | sed "s/\\"NULL\\"/\\"\\"/g"
+
 native_type_map:
   int64: "integer"
   int: "integer"

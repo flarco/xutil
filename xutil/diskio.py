@@ -64,9 +64,9 @@ def read_yaml(path):
 
 def read_file(file_path, read_lines=False, mode='r', encoding='utf8'):
   """Read text from file"""
-  if '.zip' in path.lower():
-    Z = zipimporter(get_zip_path(path))
-    stream = BytesIO(Z.get_data(path))
+  if '.zip' in file_path.lower():
+    Z = zipimporter(get_zip_path(file_path))
+    stream = BytesIO(Z.get_data(file_path))
     return stream.read()
 
   with open(file_path, mode, encoding=encoding) as stream:
@@ -78,7 +78,7 @@ def read_file(file_path, read_lines=False, mode='r', encoding='utf8'):
 
 def write_file(file_path,
                text,
-               echo=True,
+               echo=False,
                append=False,
                mode=None,
                encoding='utf8'):

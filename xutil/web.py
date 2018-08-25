@@ -5,11 +5,11 @@ eMailing
 Telegram
 Web Hooks
 '''
-import os
+import os, socket
 
 ## HTML ####################
 
-from xutil.helpers import (slog, elog, log)
+from xutil.helpers import (slog, elog, log, get_kw)
 
 
 def generate_rmd_html(rmd_file,
@@ -213,6 +213,8 @@ def tk(app_name, action, name, value):
   )
 
   URL = os.getenv('APP_TRACKER_URL')
+  if not URL:
+    raise (Exception("Env Var APP_TRACKER_URL is not defined"))
 
   try:
     requests.post(URL, params=params)
@@ -261,33 +263,35 @@ class WebApp:
   '''
   A boilerplate for a web application using evenlet with flask & socketio.
 
-  from xutil import WebApp
-  app = WebApp(name='App1', port=5899)
+  from xutil import WebApp, process_request
+  app = WebApp(name='App1')
 
   @app.route('/')
   def index():
-      """Serve the client-side application."""
-      return 'Hi!'
+    """Serve the client-side application."""
+    (val_dict, form_dict, data_dict) = process_request(request)
+    app.log('Requested "/"')
+    return 'Hi!'
 
   @app.on('connect')
   def connect(sid, environ):
-      print('connect ', sid)
+    app.log('connect ' + sid)
 
   @app.on('message')
   def message(sid, data):
-      print('message ', data)
+    app.log('message ' + str(data))
 
   @app.on('disconnect')
   def disconnect(sid):
-      print('disconnect ', sid)
+    app.log('disconnect ' + sid)
 
-  app.run()
+  app.run(port=5899)
   '''
 
-  def __init__(self, name, port):
+  def __init__(self, name):
     import os, sys, time, json
     import socketio, socket
-    from flask import Flask
+    from flask import Flask, request
 
     class MyFlask(Flask):
       jinja_options = Flask.jinja_options.copy()
@@ -302,20 +306,27 @@ class WebApp:
         ))
 
     self.name = name
-    self.port = int(port)
     self.cookie_session_key = name + '_SID'
     self.sio = socketio.Server()
     self.flask_app = MyFlask(__name__)
-    self.base_url = 'http://{}:{}'.format(socket.gethostname(), self.port)
+    self.log = log
+    self.request = request
 
     # Wrapper functions
     self.route = self.flask_app.route
     self.on = self.sio.on
     self.emit = self.sio.emit
 
-  def run(self, debug=True):
+  def run(self, port, debug=True, **kwargs):
     import eventlet, socketio
     import eventlet.wsgi
+
+    self.log = get_kw('log', self.log, kwargs)
+    if 'pipe' in kwargs:
+      self.pipe = kwargs['pipe']
+
+    self.port = int(port)
+    self.base_url = 'http://{}:{}'.format(socket.gethostname(), self.port)
 
     # remember to use DEBUG mode for templates auto reload
     # https://github.com/lepture/python-livereload/issues/144
@@ -323,7 +334,10 @@ class WebApp:
 
     app = socketio.Middleware(self.sio, self.flask_app)
 
-    log('Web Server PID is {}'.format(os.getpid()))
-    log("URL -> " + self.base_url)
+    log('*Web Server PID is {}'.format(os.getpid()))
+    log("*URL -> " + self.base_url)
 
     eventlet.wsgi.server(eventlet.listen(('0.0.0.0', self.port)), app)
+
+  def proc_request(self):
+    return process_request(self.request)

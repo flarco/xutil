@@ -1,3 +1,22 @@
+core:
+  drop_table: drop table if exists {}
+  replace: insert into {table} ({names}) values ({values}) on conflict ({pk_fields}) do update set {set_fields}
+  replace_temp: |
+      insert into {table} ({names})
+      select {names} from {temp_table}
+      on conflict ({pk_fields}) do nothing;
+      update {table} as t1 set {set_fields2}
+      from (select * from {temp_table}) as t2
+      where {pk_fields_equal}
+  insert_ignore: insert into {table} ({names}) values ({values})
+  on conflict ({pk_fields}) do nothing
+  insert_ignore_temp: insert into {table} ({names}) select {names} from {temp_table} on conflict ({pk_fields}) do nothing
+  update_temp: |
+    update {table} as t1 set {set_fields2}
+    from (select * from {temp_table}) as t2
+    where {pk_fields_equal2}
+    
+
 analysis:
   field_chars: |
     select

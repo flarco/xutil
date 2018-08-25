@@ -241,10 +241,32 @@ class PostgreSQLConn(DBConn):
     log("Inserted {} records into table '{}' in {} mins [{} r/s].".format(
       counter, table, mins, rate))
 
-  def replace(self, table, data, pk_fields=None, commit=True, echo=True):
+  def insert_ignore(self,
+                    table,
+                    data,
+                    pk_fields=None,
+                    commit=True,
+                    echo=True,
+                    temp_table=None):
+    return self.replace(
+      table=table,
+      data=data,
+      pk_fields=pk_fields,
+      commit=commit,
+      echo=echo,
+      sql_tmpl='insert_ignore',
+      temp_table=temp_table)
+
+  def replace(self,
+              table,
+              data,
+              pk_fields=None,
+              commit=True,
+              echo=True,
+              sql_tmpl='replace',
+              temp_table=None):
     "Upsert data into database"
     s_t = datetime.datetime.now()
-    import psycopg2
 
     if not len(data):
       return False
@@ -256,54 +278,78 @@ class PostgreSQLConn(DBConn):
     values = [i + 1
               for i in range(len(fields))] if mode == 'namedtuple' else fields
 
-    # self.connection.autocommit = False
-    cursor = self.get_cursor()
-
     pk_fields_set = set(pk_fields)
-    sql = self.sql_template['replace'].format(
+    sql_tmpl = sql_tmpl + '_temp' if temp_table else sql_tmpl
+    sql = self.template(sql_tmpl).format(
       table=table,
       set_fields=',\n'.join([
         '{f} = %({f})s'.format(f=f) for i, f in enumerate(fields)
         if f not in pk_fields_set
       ]),
+      set_fields2=',\n'.join([
+        '{f} = t2.{f}'.format(f=f) for i, f in enumerate(fields)
+        if f not in pk_fields_set
+      ]),
       names=',\n'.join(['{f}'.format(f=f) for f in fields]),
       pK_fields=', '.join(['{f}'.format(f=f) for f in pk_fields_set]),
+      pK_fields_equal=' and '.join(
+        ['t1.{f} = t2.{f}'.format(f=f) for f in pk_fields_set]),
       values=',\n'.join(['%({f})s'.format(f=f) for f in fields]),
+      temp_table=temp_table,
     )
 
-    try:
-      counter = 0
-      if is_gen_func(data):
-        batch = [row]
+    if temp_table:
+      # drop / create temp table
+      self.execute('drop table if exists ' + temp_table, echo=false)
+      self.execute(
+        'create table {} as select * from {} where 1=0'.format(
+          temp_table,
+          table,
+        ),
+        echo=false,
+      )
+      self.insert(temp_table, data, echo=false)
+      self.execute(sql, echo=false)
+      self.execute('drop table if exists ' + temp_table, echo=false)
+      counter = len(data)
 
-        for row in data:
-          batch.append(row)
-          if len(batch) == self.batch_size:
+    else:
+      # self.connection.autocommit = False
+      cursor = self.get_cursor()
+
+      try:
+        counter = 0
+        if is_gen_func(data):
+          batch = [row]
+
+          for row in data:
+            batch.append(row)
+            if len(batch) == self.batch_size:
+              cursor.executemany(sql, batch)
+              counter += len(batch)
+              batch = []
+
+          if len(batch):
             cursor.executemany(sql, batch)
             counter += len(batch)
-            batch = []
+        else:
+          # cursor.bindvars = None
+          cursor.executemany(sql, data)
+          counter += len(data)
 
-        if len(batch):
-          cursor.executemany(sql, batch)
-          counter += len(batch)
-      else:
-        # cursor.bindvars = None
-        cursor.executemany(sql, data)
-        counter += len(data)
+        if commit:
+          self.connection.commit()
+        else:
+          return counter
 
-      if commit:
-        self.connection.commit()
-      else:
-        return counter
+      except Exception as e:
+        message = get_exception_message().lower()
+        log(get_exception_message())
+        log(sql)
+        raise e
 
-    except Exception as e:
-      message = get_exception_message().lower()
-      log(get_exception_message())
-      log(sql)
-      raise e
-
-    # finally:
-    #   self.connection.autocommit = True
+      # finally:
+      #   self.connection.autocommit = True
 
     secs = (datetime.datetime.now() - s_t).total_seconds()
     mins = round(secs / 60, 1)
@@ -324,9 +370,8 @@ class PostgreSQLConn(DBConn):
 
     # self.connection.autocommit = False
     cursor = self.get_cursor()
-    sql = self.sql_template['insert'].format(
+    sql = self.template('insert').format(
       table=table,
-      options=self.sql_template['insert_option'],
       names=', \n'.join([self._fix_f_name(f) for f in fields]),
       values=', \n'.join(['%s'] * len(values)),
     )
@@ -346,7 +391,7 @@ class PostgreSQLConn(DBConn):
       else:
         counter = 0
 
-      temp_file_path = '/tmp/batch_sql.csv'
+      temp_file_path = '{}/batch_sql.csv'.format(self.tmp_folder)
       batch_f = open(temp_file_path, 'w')
       batch_w = csv.writer(batch_f, delimiter=deli, quoting=csv.QUOTE_MINIMAL)
 
@@ -364,7 +409,7 @@ class PostgreSQLConn(DBConn):
       cursor.copy_from(
         open(temp_file_path, 'r'), table, columns=fields, sep=deli)
       self.connection.commit()
-      # os.remove(temp_file_path)
+      os.remove(temp_file_path)
 
     except Exception as e:
       message = get_exception_message().lower()
@@ -380,5 +425,9 @@ class PostgreSQLConn(DBConn):
     rate = round(counter / secs, 1)
     if echo:
       log("Inserted {} records into table '{}' in {} mins [{} r/s].".format(
-        counter, table, mins, rate))
+        counter,
+        table,
+        mins,
+        rate,
+      ))
     return counter

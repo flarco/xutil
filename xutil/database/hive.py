@@ -57,7 +57,7 @@ class HiveConn(DBConn):
       insert_option='',
     )
 
-    self.temp_path = self.variables['tmp_folder']
+    self.temp_path = self.tmp_folder
 
   def get_engine(self, echo=False):
     "Could implement PyHive?"

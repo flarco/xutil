@@ -13,6 +13,9 @@ setup(
   packages=find_packages(exclude=['tests']),
   include_package_data=True,
   install_requires=[
+    "verboselogs",
+    "coloredlogs",
+    "psutil",
     "jmespath",
     "jsonlines",
     "paramiko",
@@ -35,6 +38,10 @@ setup(
     # "sasl", # need sasl.h library
     # "thrift_sasl",
   ],
+  entry_points={
+    'console_scripts':
+    ['pykill=xutil.cli:pykill', 'exec-sql=xutil.cli:exec_sql'],
+  },
   classifiers=[
     'Programming Language :: Python :: 2',
     'Programming Language :: Python :: 3', 'Intended Audience :: Developers',

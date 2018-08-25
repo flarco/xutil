@@ -10,18 +10,33 @@ Spark
 import os, datetime, pandas, time, re
 from collections import namedtuple, OrderedDict
 
-import jmespath
-import sqlalchemy as sa
+import jmespath, typing
+import sqlalchemy
 from multiprocessing import Queue, Process
 
-from xutil.helpers import (log, elog, slog, get_exception_message, struct, now,
-                           get_databases, get_dir_path, get_profile,
-                           get_variables, file_exists, str_rmv_indent, ptable
-                           )
+from xutil.helpers import (
+  log,
+  elog,
+  slog,
+  get_exception_message,
+  struct,
+  now,
+  get_databases,
+  get_dir_path,
+  get_profile,
+  get_variables,
+  file_exists,
+  str_rmv_indent,
+  ptable,
+)
 from xutil.diskio import read_yaml, write_csvs
 
 conns = {}
 
+_fwk = lambda k, v: "{} = '{}'".format(k, v)
+_fw = lambda sep, **kws: sep.join([_fwk(k, v) for k,v in kws.items()]) # Format WHERE
+fwa = lambda **kws: _fw(' and ', **kws) # Format WHERE AND
+fwo = lambda **kws: _fw(' or ', **kws) # Format WHERE OR
 
 class DBConn(object):
   """Base class for database connections"""
@@ -33,13 +48,11 @@ class DBConn(object):
     self._cred = struct(conn_dict)
     self.type = self._cred.type
     self.engine = None
-    self.variables = get_variables()
     self.profile = profile
     self.batch_size = 10000
     self.fetch_size = 20000
     self.connect()
     self.last_connect = now()
-    self.set_variables()
     self.echo = echo
 
     # Base Template
@@ -65,6 +78,16 @@ class DBConn(object):
       else:
         # Level 1 Non-Dict Overwrite
         self.template_dict[key1] = temp_dict[key1]
+
+    self.variables = self.template('variables')
+
+    if os.getenv('PROFILE_YAML'):
+      other_vars = get_variables()
+      for key in other_vars:
+        self.variables[key] = other_vars[key]
+
+    self.tmp_folder = self.variables['tmp_folder']
+    self.set_variables()
 
     if echo:
       log("Connected to {} as {}".format(self._cred.name, self._cred.user))
@@ -290,21 +313,28 @@ class DBConn(object):
       result = conn.execute(stmt)
       return result
 
+  def drop_table(self, table, log=log):
+    "Drop table"
+    cursor = self.get_cursor()
+
+    try:
+      sql = self.template('core.drop_table').format(table)
+      cursor.execute(sql)
+    except Exception as E:
+      message = get_exception_message().lower()
+      if self.template('error_filter.table_not_exist') in message:
+        if self.echo:
+          log('Table "{}" already dropped.'.format(table))
+      else:
+        raise E
+
   def create_table(self, table, field_types, drop=False, log=log):
     "Create table"
 
     cursor = self.get_cursor()
 
     if drop:
-      try:
-        sql = self.template('core.drop_table').format(table)
-        cursor.execute(sql)
-      except Exception as E:
-        message = get_exception_message().lower()
-        if self.template('error_filter.table_not_exist') in message:
-          log('Table "{}" already dropped.'.format(table))
-        else:
-          raise E
+      self.drop_table(table, log=log)
 
     new_ftypes = OrderedDict()
     for f in field_types:
@@ -796,3 +826,98 @@ def get_conn(db,
 
   conns[db] = conn
   return conn
+
+class SQLx:
+  """
+  SQL Express functions. Supports CRUD transactional operations.
+
+  Suppose there is a table named 'cache', sqlx allows:
+  
+  sqlx.x('cache.insert')(rows)
+  sqlx.x('cache.insert_one')(row)
+  sqlx.x('cache.delete')(where)
+  sqlx.x('cache.update')(rows, pk_fields)
+  sqlx.x('cache.update_one')(row, pk_cols)
+  sqlx.x('cache.replace')(rows, pk_fields)
+  sqlx.x('cache.select')(where)
+  sqlx.x('cache.select_one')(where)
+  """
+  def __init__(self, conn, schema, tables: typing.Dict[str, sqlalchemy.Table]):
+    self.conn = conn
+    self.schema = schema
+    self._sql_func_map: typing.Dict[str, typing.Callable] = {}
+    self.ntRec: typing.Dict[str, namedtuple] = {}
+    self.x = self.exec
+    self.pk_cache = {}
+
+
+    for table in tables:
+      self.ntRec[table] = namedtuple(table, tables[table].columns.keys())
+      self._sql_func_map[table] = dict(
+        insert=lambda rows: self.insert(table, rows),
+        insert_one=lambda row: self.insert(table, [row]),
+        delete=lambda where: self.delete(table, where),
+        update=lambda rows, pk_cols=None: self.update(table, rows, pk_cols),
+        update_one=lambda row, pk_cols=None: self.update(table, [row], pk_cols),
+        update_rec=
+        lambda pk_cols=None, **kws: self.update(table, [self.ntRec[table](**kws)], pk_cols),
+        replace=lambda rows, pk_cols=None: self.replace(table, rows, pk_cols),
+        replace_one=lambda row, pk_cols=None: self.replace(table, [row], pk_cols),
+        replace_rec=
+        lambda pk_cols=None, **kws: self.replace(table, [self.ntRec[table](**kws)], pk_cols),
+        select=lambda where='1=1': self.select(table, where),
+        select_one=lambda where: self.select_one(table, where, one=True),
+      )
+
+
+  def exec(self, expr):
+    return jmespath.search(expr, sql_func_map)
+
+  def _get_pk(self, table):
+    table_obj = self.schema + '.' + table if self.schema else table
+    if table not in self.pk_cache:
+      pk_rows = self.conn.get_primary_keys(table_obj)
+      pk_fields = [r.column_name for r in pk_rows]
+      self.pk_cache[table] = pk_fields
+    return self.pk_cache[table]
+
+  def insert(self, table, data):
+    table_obj = self.schema + '.' + table if self.schema else table
+    self.conn.insert(table_obj, data)
+
+  def update(self, table, data, pk_fields=None):
+    table_obj = self.schema + '.' + table if self.schema else table
+    if not pk_fields:
+      pk_fields = self._get_pk(table)
+    self.conn.update(table_obj, data, pk_fields, echo=False)
+
+  def update_one(self, table, row, pk_cols=None):
+    self.update(table, [row], pk_cols)
+
+  def replace(self, table, data, pk_fields=None):
+    table_obj = self.schema + '.' + table if self.schema else table
+    if not pk_fields:
+      pk_fields = self._get_pk(table)
+    self.conn.replace(table_obj, data, pk_fields, echo=False)
+
+  def replace_rec(self, table, pk_cols=None, **kws):
+    self.replace(table, [self.ntRec[table](**kws)], pk_cols)
+
+  def select(self, table, where, one=False):
+    table_obj = self.schema + '.' + table if self.schema else table
+    rows = self.conn.select(
+      "select * from {} where {}".format(table_obj, where),
+      echo=False,
+    )
+    if one: return rows[0] if rows else None
+    else: return rows
+
+  def select_one(self, table, where, field=None):
+    row = self.select(table, where, one=True)
+    if field and row:
+      return row.__getattribute__(field)
+    return row
+
+  def delete(self, table, where):
+    table_obj = self.schema + '.' + table if self.schema else table
+    self.conn.execute("delete from {} where {}".format(table_obj, where))
