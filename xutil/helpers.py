@@ -34,6 +34,8 @@ now_file_str = lambda: datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 today_str = lambda: datetime.datetime.now().strftime('%Y%m%d')
 get_row_fields = lambda r: r._fields if hasattr(r, '_fields') else r.__fields__
 jdumps = lambda obj: json.dumps(obj, cls=MyJSONEncoder)
+jloads = lambda obj: json.loads(obj)
+jtrans = lambda obj: jloads(jdumps(obj))
 is_gen_func = lambda x: str(x).startswith('<generator ')
 get_profile = lambda: load_profile()
 get_kw = lambda k, deflt, kwargs: kwargs[k] if k in kwargs else deflt
@@ -44,6 +46,7 @@ get_home_path = lambda: os.path.expanduser("~")
 file_exists = lambda p: Path(p).exists()
 kill_pid = lambda pid: os.kill(pid, signal.SIGTERM)
 get_pid_path = lambda name=__file__, folder=get_home_path(): '{}/.{}.PID'.format(folder, name)
+make_rec = lambda **d: namedtuple('Rec', d.keys())(**d)
 
 elog = lambda text, show_time=True: log(text, color='red', show_time=show_time)
 slog = lambda text, show_time=True: log(text, color='green', show_time=show_time)
@@ -133,7 +136,7 @@ try:
     if isinstance(text, Exception):
       level = 'CRITICAL'
       error = text
-      text = str(error) + '\n' + ''.join(
+      text = 'ERROR: ' + str(error) + '\n' + ''.join(
         traceback.format_exception(
           etype=type(error), value=error, tb=error.__traceback__))
 

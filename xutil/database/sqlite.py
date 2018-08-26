@@ -272,7 +272,8 @@ class SQLiteConn(DBConn):
         counter += len(data)
 
       self.connection.commit()
-      log("Inserted {} records into table '{}'.".format(counter, table))
+      if echo:
+        log("Inserted {} records into table '{}'.".format(counter, table))
 
     except Exception as e:
       message = get_exception_message().lower()

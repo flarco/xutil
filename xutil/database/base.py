@@ -28,15 +28,17 @@ from xutil.helpers import (
   file_exists,
   str_rmv_indent,
   ptable,
+  make_rec,
 )
 from xutil.diskio import read_yaml, write_csvs
 
 conns = {}
 
 _fwk = lambda k, v: "{} = '{}'".format(k, v)
-_fw = lambda sep, **kws: sep.join([_fwk(k, v) for k,v in kws.items()]) # Format WHERE
-fwa = lambda **kws: _fw(' and ', **kws) # Format WHERE AND
-fwo = lambda **kws: _fw(' or ', **kws) # Format WHERE OR
+_fw = lambda sep, **kws: sep.join([_fwk(k, v) for k, v in kws.items()])  # Format WHERE
+fwa = lambda **kws: _fw(' and ', **kws)  # Format WHERE AND
+fwo = lambda **kws: _fw(' or ', **kws)  # Format WHERE OR
+
 
 class DBConn(object):
   """Base class for database connections"""
@@ -827,97 +829,115 @@ def get_conn(db,
   conns[db] = conn
   return conn
 
-class SQLx:
+
+class SqlX:
   """
   SQL Express functions. Supports CRUD transactional operations.
 
   Suppose there is a table named 'cache', sqlx allows:
   
-  sqlx.x('cache.insert')(rows)
-  sqlx.x('cache.insert_one')(row)
-  sqlx.x('cache.delete')(where)
-  sqlx.x('cache.update')(rows, pk_fields)
-  sqlx.x('cache.update_one')(row, pk_cols)
-  sqlx.x('cache.replace')(rows, pk_fields)
-  sqlx.x('cache.select')(where)
-  sqlx.x('cache.select_one')(where)
+  sqlx.x('cache').insert(rows)
+  sqlx.x('cache').insert_one(row)
+  sqlx.x('cache').add(**kws)
+  sqlx.x('cache').delete(where)
+  sqlx.x('cache').update(rows, pk_fields)
+  sqlx.x('cache').update_one(row, pk_cols)
+  sqlx.x('cache').replace(rows, pk_fields)
+  sqlx.x('cache').select(where)
+  sqlx.x('cache').select_one(where)
   """
-  def __init__(self, conn, schema, tables: typing.Dict[str, sqlalchemy.Table]):
+
+  def __init__(self, conn: DBConn, table, schema, ntRec: namedtuple):
     self.conn = conn
+    self.table = table
     self.schema = schema
-    self._sql_func_map: typing.Dict[str, typing.Callable] = {}
-    self.ntRec: typing.Dict[str, namedtuple] = {}
-    self.x = self.exec
-    self.pk_cache = {}
+    self.ntRec = ntRec
+    self.pk_fields = None
+    self.table_obj = schema + '.' + table if schema else table
 
+    self.insert_one = lambda row: self.insert([row])
+    self.add = lambda **kws: self.insert([self.ntRec(**kws)])
+    self.update_one = lambda row, pk_cols=None: self.update([row], pk_cols)
+    self.update_rec=lambda pk_cols=None, **kws: self.update([make_rec(**kws)], pk_cols)
+    self.replace_one = lambda row, pk_cols=None: self.replace([row], pk_cols)
+    self.replace_rec=lambda pk_cols=None, **kws: self.replace([make_rec(**kws)], pk_cols)
+    # self.select_one = lambda where: self.select_one(where, one=True)
 
-    for table in tables:
-      self.ntRec[table] = namedtuple(table, tables[table].columns.keys())
-      self._sql_func_map[table] = dict(
-        insert=lambda rows: self.insert(table, rows),
-        insert_one=lambda row: self.insert(table, [row]),
-        delete=lambda where: self.delete(table, where),
-        update=lambda rows, pk_cols=None: self.update(table, rows, pk_cols),
-        update_one=lambda row, pk_cols=None: self.update(table, [row], pk_cols),
-        update_rec=
-        lambda pk_cols=None, **kws: self.update(table, [self.ntRec[table](**kws)], pk_cols),
-        replace=lambda rows, pk_cols=None: self.replace(table, rows, pk_cols),
-        replace_one=lambda row, pk_cols=None: self.replace(table, [row], pk_cols),
-        replace_rec=
-        lambda pk_cols=None, **kws: self.replace(table, [self.ntRec[table](**kws)], pk_cols),
-        select=lambda where='1=1': self.select(table, where),
-        select_one=lambda where: self.select_one(table, where, one=True),
-      )
+  def _get_pk(self):
+    if not self.pk_fields:
+      pk_rows = self.conn.get_primary_keys(self.table_obj)
+      self.pk_fields = [r.column_name for r in pk_rows]
+    return self.pk_fields
 
+  def insert(self, data):
+    self.conn.insert(self.table_obj, data)
 
-  def exec(self, expr):
-    return jmespath.search(expr, sql_func_map)
-
-  def _get_pk(self, table):
-    table_obj = self.schema + '.' + table if self.schema else table
-    if table not in self.pk_cache:
-      pk_rows = self.conn.get_primary_keys(table_obj)
-      pk_fields = [r.column_name for r in pk_rows]
-      self.pk_cache[table] = pk_fields
-    return self.pk_cache[table]
-
-  def insert(self, table, data):
-    table_obj = self.schema + '.' + table if self.schema else table
-    self.conn.insert(table_obj, data)
-
-  def update(self, table, data, pk_fields=None):
-    table_obj = self.schema + '.' + table if self.schema else table
+  def update(self, data, pk_fields=None):
     if not pk_fields:
-      pk_fields = self._get_pk(table)
-    self.conn.update(table_obj, data, pk_fields, echo=False)
+      pk_fields = self._get_pk()
+      if not pk_fields:
+        raise Exception("Need Keys to perform UPDATE!")
+      t_fields = [x.lower() for x in data[0]._fields]
+      for f in pk_fields:
+        if not f.lower() in t_fields:
+          # if keys not provided, need to make sure PK values are provided in data records
+          raise Exception(
+            "Value of  PK field '{}' must be provided to perform UPDATE!".
+            format(f))
 
-  def update_one(self, table, row, pk_cols=None):
-    self.update(table, [row], pk_cols)
+    self.conn.update(self.table_obj, data, pk_fields, echo=False)
 
-  def replace(self, table, data, pk_fields=None):
-    table_obj = self.schema + '.' + table if self.schema else table
+  def update_one(self, row, pk_cols=None):
+    self.update([row], pk_cols)
+
+  def update_rec(self, pk_cols=None, **kws):
+    self.update([make_rec(**kws)], pk_cols)
+
+  def replace(self, data, pk_fields=None):
     if not pk_fields:
-      pk_fields = self._get_pk(table)
-    self.conn.replace(table_obj, data, pk_fields, echo=False)
+      pk_fields = self._get_pk()
+    self.conn.replace(self.table_obj, data, pk_fields, echo=False)
 
-  def replace_rec(self, table, pk_cols=None, **kws):
-    self.replace(table, [self.ntRec[table](**kws)], pk_cols)
+  # def replace_rec(self, pk_cols=None, **kws):
+  #   # add default None?
+  #   for field in self.ntRec._fields:
+  #     kws[field] = kws.get(field, None)
 
-  def select(self, table, where, one=False):
-    table_obj = self.schema + '.' + table if self.schema else table
+  #   self.replace([self.ntRec(**kws)], pk_cols)
+
+  def select(self, where='1=1', one=False):
     rows = self.conn.select(
-      "select * from {} where {}".format(table_obj, where),
+      "select * from {} where {}".format(self.table_obj, where),
       echo=False,
     )
     if one: return rows[0] if rows else None
     else: return rows
 
-  def select_one(self, table, where, field=None):
-    row = self.select(table, where, one=True)
+  def select_one(self, where, field=None):
+    row = self.select(where, one=True)
     if field and row:
       return row.__getattribute__(field)
     return row
 
-  def delete(self, table, where):
-    table_obj = self.schema + '.' + table if self.schema else table
-    self.conn.execute("delete from {} where {}".format(table_obj, where))
+  def delete(self, where):
+    self.conn.execute("delete from {} where {}".format(self.table_obj, where))
+
+
+def make_sqlx(conn, schema, tables):
+  "Make sqlx lookup function for given tables"
+
+  table_func_map: typing.Dict[str, SqlX] = {}
+
+  for table in tables:
+    ntRec = namedtuple(table, tables[table].columns.keys())
+    table_func_map[table] = SqlX(conn, table, schema, ntRec)
+
+  # return table_func_map
+
+  def sqlx(expr) -> SqlX:
+    obj = jmespath.search(expr, table_func_map)
+    if not obj:
+      raise Exception('sqlx: Cannot find "{}"'.format(expr))
+    return obj
+
+  return sqlx

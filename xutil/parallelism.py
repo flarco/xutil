@@ -3,7 +3,7 @@
 Threads
 Multiprocessing
 '''
-import os
+import os, socket
 from .helpers import (log, slog, elog, get_exception_message, now,
                       ndelta_seconds, get_home_path, cleanup_pid, register_pid,
                       get_pid_path)
@@ -32,6 +32,7 @@ def pipe_post(pipe, obj):
 class Pipe:
   def __init__(self):
     import multiprocessing
+    self.lock = multiprocessing.Lock()
     self.parent, self.child = multiprocessing.Pipe()
 
   def emit_to_parent(self, obj):
@@ -90,14 +91,19 @@ class Worker:
 
   def __init__(self,
                name,
+               type,
                fn,
                log=log,
                args=[],
                kwargs={},
                start=False,
                pid_folder=None):
+    self.hostname = socket.gethostname()
     self.name = name
-    self.pipe = Pipe()
+    self.type = type
+    self.pipe = Pipe()  # 2-way
+    # self.queue = Queue()  # 1-way: child to parent only
+    self.lock = Lock()
     self.fn = fn
     self.log = log
     self.args = args

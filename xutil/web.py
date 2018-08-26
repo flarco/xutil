@@ -5,11 +5,12 @@ eMailing
 Telegram
 Web Hooks
 '''
-import os, socket
+import os, socket, json
 
 ## HTML ####################
 
 from xutil.helpers import (slog, elog, log, get_kw)
+from xutil.parallelism import Pipe, Worker
 
 
 def generate_rmd_html(rmd_file,
@@ -321,9 +322,13 @@ class WebApp:
     import eventlet, socketio
     import eventlet.wsgi
 
-    self.log = get_kw('log', self.log, kwargs)
+    if 'worker' in kwargs:
+      self.worker: Worker = kwargs['worker']
+      self.pipe: Pipe = self.worker.pipe
+      self.log = self.worker.log
     if 'pipe' in kwargs:
-      self.pipe = kwargs['pipe']
+      self.pipe: Pipe = kwargs['pipe']
+    self.log = get_kw('log', self.log, kwargs)
 
     self.port = int(port)
     self.base_url = 'http://{}:{}'.format(socket.gethostname(), self.port)
