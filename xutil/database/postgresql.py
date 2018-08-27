@@ -184,8 +184,8 @@ class PostgreSQLConn(DBConn):
     if echo: log("Streaming SQL for '{}'.".format(rec_name))
 
     try:
-      self.cursor.execute('{} LIMIT 0'.format(sql)
-                          if 'limit ' not in sql.lower() else sql)
+      self._do_execute('{} LIMIT 0'.format(sql)
+                       if 'limit ' not in sql.lower() else sql)
     except Exception as e:
       log(e)
       log(sql)
@@ -207,7 +207,7 @@ class PostgreSQLConn(DBConn):
 
     with self.connection.cursor(name='cursor') as cursor:
       cursor.itersize = self.fetch_size
-      cursor.execute(sql)
+      self._do_execute(sql, cursor)
 
       while True:
         rows = cursor.fetchmany(self.fetch_size)

@@ -18,7 +18,7 @@ from threading import (
   Lock,
 )
 from multiprocessing import Process
-from multiprocessing.queues import (Queue)
+from multiprocessing import (Queue)
 
 all_threads = OrderedDict()
 all_processes = OrderedDict()
@@ -102,7 +102,8 @@ class Worker:
     self.name = name
     self.type = type
     self.pipe = Pipe()  # 2-way
-    # self.queue = Queue()  # 1-way: child to parent only
+    self.child_q = Queue()
+    self.parent_q = Queue()
     self.lock = Lock()
     self.fn = fn
     self.log = log
@@ -141,6 +142,24 @@ class Worker:
 
     # delete pid file
     cleanup_pid(self.pid_file, halt_if_running=False)
+
+  def put_parent_q(self, obj):
+    self.parent_q.put(obj)
+
+  def put_child_q(self, obj):
+    self.child_q.put(obj)
+
+  def get_parent_q(self):
+    if not self.parent_q.empty():
+      return self.parent_q.get()
+    else:
+      return None
+
+  def get_child_q(self):
+    if not self.child_q.empty():
+      return self.child_q.get()
+    else:
+      return None
 
 
 def kill_processes(name):

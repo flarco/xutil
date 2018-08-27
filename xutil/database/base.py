@@ -145,6 +145,11 @@ class DBConn(object):
       raise (Exception('PK Text failed for table "{}" with fields "{}"'.format(
         table, fields)))
 
+  def _do_execute(self, sql, cursor=None):
+    cursor = cursor if cursor else self.cursor
+    cursor.execute(sql)
+    self._fields = self.get_cursor_fields()
+
   def execute_multi(self,
                     sql,
                     dtype='namedtuple',
@@ -210,7 +215,7 @@ class DBConn(object):
           limit=limit,
           echo=echo,
           log=log)
-        fields = self.get_cursor_fields()
+        fields = self._fields
 
         if '-- pk_test:' in sql.lower() and sql_.startswith('create'):
           sql_lines = sql_.splitlines()
@@ -321,7 +326,7 @@ class DBConn(object):
 
     try:
       sql = self.template('core.drop_table').format(table)
-      cursor.execute(sql)
+      self._do_execute(sql)
     except Exception as E:
       message = get_exception_message().lower()
       if self.template('error_filter.table_not_exist') in message:
@@ -362,7 +367,7 @@ class DBConn(object):
 
     # log('Creating table: \n' + sql))
     try:
-      cursor.execute(sql)
+      self._do_execute(sql)
     except Exception as e:
       log(get_exception_message())
       log(sql)
@@ -423,7 +428,7 @@ class DBConn(object):
     self.cursor.itersize = self.fetch_size
 
     try:
-      self.cursor.execute(sql)
+      self._do_execute(sql)
     except Exception as e:
       log(e)
       log(sql)
@@ -476,8 +481,8 @@ class DBConn(object):
     cursor = self.get_cursor()
 
     try:
-      cursor.execute(sql)
-      fields = self.get_cursor_fields()
+      self._do_execute(sql)
+      fields = self._fields = self.get_cursor_fields()
       if not fields: return []
 
       if dtype == 'namedtuple':
@@ -905,11 +910,11 @@ class SqlX:
 
   #   self.replace([self.ntRec(**kws)], pk_cols)
 
-  def select(self, where='1=1', one=False):
+  def select(self, where='1=1', one=False, limit=None):
     rows = self.conn.select(
       "select * from {} where {}".format(self.table_obj, where),
       echo=False,
-    )
+      limit=limit)
     if one: return rows[0] if rows else None
     else: return rows
 

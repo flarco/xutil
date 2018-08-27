@@ -40,8 +40,8 @@ class SQLiteConn(DBConn):
     self._cred.user = ''
 
     cursor = self.get_cursor()
-    cursor.execute('PRAGMA temp_store=MEMORY')
-    cursor.execute('PRAGMA journal_mode=MEMORY')
+    self._do_execute('PRAGMA temp_store=MEMORY')
+    self._do_execute('PRAGMA journal_mode=MEMORY')
 
   def get_dialect(self, echo=False):
     """SQLAlchemy dialect"""
