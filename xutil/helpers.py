@@ -263,6 +263,12 @@ def get_exception_message(append_message='', raw=False):
   return message
 
 
+def get_error_str(err):
+  err_type = type(err).__name__
+  err_msg = str(err)
+  return '{}: {}'.format(err_type, err_msg)
+
+
 time_start = now()
 
 
