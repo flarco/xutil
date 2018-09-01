@@ -38,6 +38,7 @@ _fwk = lambda k, v: "{} = '{}'".format(k, v)
 _fw = lambda sep, **kws: sep.join([_fwk(k, v) for k, v in kws.items()])  # Format WHERE
 fwa = lambda **kws: _fw(' and ', **kws)  # Format WHERE AND
 fwo = lambda **kws: _fw(' or ', **kws)  # Format WHERE OR
+rows_to_dicts = lambda rows: [row._asdict() for row in rows]
 
 
 class DBConn(object):
@@ -534,6 +535,7 @@ class DBConn(object):
   def get_schemas(self, echo=True):
     "Get list of schemas."
     Rec = namedtuple('Schemas', 'schema')
+    self._fields = Rec._fields
 
     sql_tmpl = self.template('metadata.schemas')
     if sql_tmpl:
@@ -546,26 +548,27 @@ class DBConn(object):
     rows = [Rec(s) for s in schemas]
     return rows
 
-  def get_objects(self, schema, object_type='ALL', echo=True):
-    "Get metadata for objects. object_type in 'ALL', 'TABLE', 'VIEW'"
+  def get_objects(self, schema, object_type='all', echo=True):
+    "Get metadata for objects. object_type in 'all', 'table', 'view'"
     Rec = namedtuple('Table', 'schema object_name object_type')
+    self._fields = Rec._fields
 
     def get_rec(object_name, object_type):
       r_dict = dict(
         schema=schema, object_name=object_name, object_type=object_type)
       return Rec(**r_dict)
 
-    if object_type == 'ALL':
+    if object_type == 'all':
       table_rows = self.get_tables(schema)
-      rows = [get_rec(r.table, 'TABLE') for r in sorted(table_rows)]
+      rows = [get_rec(r.table, 'table') for r in sorted(table_rows)]
       view_rows = self.get_views(schema)
-      rows += [get_rec(r.view, 'VIEW') for r in sorted(view_rows)]
-    elif object_type == 'TABLE':
+      rows += [get_rec(r.view, 'view') for r in sorted(view_rows)]
+    elif object_type == 'table':
       table_rows = self.get_tables(schema)
-      rows = [get_rec(r.table, 'TABLE') for r in sorted(table_rows)]
-    elif object_type == 'VIEW':
+      rows = [get_rec(r.table, 'table') for r in sorted(table_rows)]
+    elif object_type == 'view':
       view_rows = self.get_views(schema)
-      rows += [get_rec(r.view, 'VIEW') for r in sorted(view_rows)]
+      rows += [get_rec(r.view, 'view') for r in sorted(view_rows)]
     else:
       raise Exception('Object type "{}" not supported!'.format(object_type))
 
@@ -574,6 +577,7 @@ class DBConn(object):
   def get_tables(self, schema, echo=True):
     "Get metadata for tables."
     Rec = namedtuple('Table', 'schema table')
+    self._fields = Rec._fields
 
     def get_rec(table):
       r_dict = dict(schema=schema, table=table)
@@ -594,6 +598,7 @@ class DBConn(object):
   def get_views(self, schema, echo=True):
     "Get metadata for views."
     Rec = namedtuple('View', 'schema view')
+    self._fields = Rec._fields
 
     def get_rec(view):
       r_dict = dict(schema=schema, view=view)
@@ -615,6 +620,7 @@ class DBConn(object):
       'Columns',
       'schema table column_name type column_order nullable default autoincrement'
     )
+    self._fields = Rec._fields
     schema, table = self._split_schema_table(obj)
 
     def get_rec(r_dict, column_order):
@@ -649,6 +655,7 @@ class DBConn(object):
   def get_primary_keys(self, obj, echo=False):
     "Get PK metadata for table"
     Rec = namedtuple('PKs', 'schema table pk_name column_name column_order')
+    self._fields = Rec._fields
     schema, table = self._split_schema_table(obj)
 
     def get_rec(col, pk_name, column_order):
@@ -677,6 +684,7 @@ class DBConn(object):
     "Get indexes metadata for table"
     Rec = namedtuple(
       'Indexes', 'schema table index_name column_name column_order unique')
+    self._fields = Rec._fields
     schema, table = self._split_schema_table(obj)
 
     def get_rec(r_dict):
@@ -703,6 +711,7 @@ class DBConn(object):
   def get_ddl(self, obj, object_type=None, echo=True):
     "Get ddl for table"
     Rec = namedtuple('DDL', 'ddl')
+    self._fields = Rec._fields
     schema, obj = self._split_schema_table(obj)
 
     sql_tmpl = self.template('metadata.ddl')
@@ -910,18 +919,19 @@ class SqlX:
 
   #   self.replace([self.ntRec(**kws)], pk_cols)
 
-  def select(self, where='1=1', one=False, limit=None):
+  def select(self, where='1=1', one=False, limit=None, as_dict=False):
     rows = self.conn.select(
       "select * from {} where {}".format(self.table_obj, where),
       echo=False,
       limit=limit)
+    rows = rows_to_dicts(rows) if as_dict else rows
     if one: return rows[0] if rows else None
     else: return rows
 
-  def select_one(self, where, field=None):
-    row = self.select(where, one=True)
+  def select_one(self, where, field=None, as_dict=False):
+    row = self.select(where, one=True, as_dict=as_dict)
     if field and row:
-      return row.__getattribute__(field)
+      return row[field] if as_dict else row.__getattribute__(field)
     return row
 
   def delete(self, where):
