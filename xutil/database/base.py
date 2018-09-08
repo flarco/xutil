@@ -49,6 +49,7 @@ class DBConn(object):
   def __init__(self, conn_dict, profile=None, echo=False):
     "Inititate connection"
     self._cred = struct(conn_dict)
+    self.name = self._cred.get('name', None)
     self.type = self._cred.type
     self.engine = None
     self.profile = profile
@@ -102,7 +103,7 @@ class DBConn(object):
   def reconnect(self, min_tresh=0):
     """Re-Connect to Database if minute threshold reached"""
     if (now() - self.last_connect).total_seconds() > min_tresh * 60:
-      log('Reconnecting...')
+      log('Reconnecting to {}...'.format(self.name))
       self.connect()
       self.last_connect = now()
 
@@ -147,9 +148,13 @@ class DBConn(object):
         table, fields)))
 
   def _do_execute(self, sql, cursor=None):
-    cursor = cursor if cursor else self.cursor
-    cursor.execute(sql)
-    self._fields = self.get_cursor_fields()
+    cursor = cursor if cursor else self.get_cursor()
+    try:
+      cursor.execute(sql)
+    except Exception as E:
+      log(Exception('Error for SQL:\n' + sql))
+      raise E
+    self._fields = self.get_cursor_fields(cursor=cursor)
 
   def execute_multi(self,
                     sql,
@@ -228,16 +233,14 @@ class DBConn(object):
           fields = line.split(':')[-1]
           self.check_pk(table, fields)
 
-      except Exception as e:
+      except Exception as E:
         message = get_exception_message().lower()
 
         if sql_.startswith(
             'drop ') and self.error_msg['table_not_exist'] in message:
           log("WARNING: Table already dropped.")
         else:
-          log(get_exception_message())
-          log(sql)
-          raise e
+          raise E
 
       if not fields: fields = []
 
@@ -370,8 +373,6 @@ class DBConn(object):
     try:
       self._do_execute(sql)
     except Exception as e:
-      log(get_exception_message())
-      log(sql)
       raise e
 
     log('Created table "{}"'.format(table))
@@ -385,13 +386,14 @@ class DBConn(object):
 
     return self.cursor
 
-  def get_cursor_fields(self, as_dict=False, native_type=True):
+  def get_cursor_fields(self, as_dict=False, native_type=True, cursor=None):
     "Get fields of active Select cursor"
     fields = OrderedDict()
-    if self.cursor.description == None:
+    cursor = cursor if cursor else self.cursor
+    if cursor.description == None:
       return []
 
-    for f in self.cursor.description:
+    for f in cursor.description:
       f_name = f[0].lower()
       if as_dict:
         if native_type:
@@ -418,39 +420,36 @@ class DBConn(object):
              rec_name='Record',
              dtype='namedtuple',
              yield_batch=False,
+             limit=None,
              echo=True):
     "Stream Select from SQL, yield records as they come in"
     self.reconnect(min_tresh=10)
     if echo: log("Streaming SQL for '{}'.".format(rec_name))
 
     self.get_cursor()
-    log('Execute <-')
-    self.cursor.arraysize = self.fetch_size
-    self.cursor.itersize = self.fetch_size
+
+    fetch_size = limit if limit else self.fetch_size
+    self.cursor.arraysize = fetch_size
+    # self.cursor.itersize = fetch_size
 
     try:
       self._do_execute(sql)
     except Exception as e:
-      log(e)
-      log(sql)
       raise e
-
-    log('Fields <-')
-    self.field_types = self.get_cursor_fields(as_dict=False, native_type=False)
-    fields = [f for f in self.field_types]
 
     if dtype == 'tuple':
       make_rec = lambda row: row
     else:
-      Record = namedtuple(rec_name.replace(' ', '_').replace('.', '_'), fields)
+      Record = namedtuple(
+        rec_name.replace(' ', '_').replace('.', '_'), self._fields)
       make_rec = lambda row: Record(*row)
 
     self._stream_counter = 0
 
-    log('Collect <-')
-
     while True:
-      rows = self.cursor.fetchmany(self.fetch_size)
+      if not self._fields:
+        break
+      rows = self.cursor.fetchmany(fetch_size)
       log(' -> {}'.format(len(rows)))
       if rows:
         if yield_batch:
@@ -462,6 +461,8 @@ class DBConn(object):
             self._stream_counter += 1
             yield make_rec(row)
       else:
+        break
+      if limit:
         break
 
     # log('Stream finished at {} records.'.format(self._stream_counter))
@@ -481,39 +482,41 @@ class DBConn(object):
     s_t = datetime.datetime.now()
     cursor = self.get_cursor()
 
-    try:
-      self._do_execute(sql)
-      fields = self._fields = self.get_cursor_fields()
-      if not fields: return []
+    def get_rows(cursor):
+      counter = 0
+      row = cursor.fetchone()
+      while row:
+        counter += 1
+        yield row
+        if limit and counter == limit:
+          break
+        row = cursor.fetchone()
 
-      if dtype == 'namedtuple':
-        Record = namedtuple(
-          rec_name.replace(' ', '_').replace('.', '_'), fields)
-        if limit:
-          data = [Record(*row) for row in cursor.fetchmany(limit)]
-        else:
-          data = [Record(*row) for row in cursor.fetchall()]
+    _data = list(self.stream(sql, dtype=dtype, echo=False, limit=limit))
 
-      elif dtype == 'tuple':
-        if limit:
-          data = [row for row in cursor.fetchmany(limit)]
-        else:
-          data = [row for row in cursor.fetchall()]
+    fields = self._fields
+    if not fields: return []
 
-      elif dtype == 'dataframe':
-        if limit:
-          data = pandas.DataFrame(
-            [row for row in cursor.fetchmany(limit)], columns=fields)
-        else:
-          data = pandas.DataFrame(
-            [row for row in cursor.fetchall()], columns=fields)
+    if dtype == 'namedtuple':
+      Record = namedtuple(rec_name.replace(' ', '_').replace('.', '_'), fields)
+      if limit:
+        data = [Record(*row) for row in _data]
       else:
-        raise (Exception('{} is not recongnized.'.format(dtype)))
+        data = [Record(*row) for row in _data]
 
-    except Exception as e:
-      log(e)
-      log(sql)
-      raise e
+    elif dtype == 'tuple':
+      if limit:
+        data = [row for row in _data]
+      else:
+        data = [row for row in _data]
+
+    elif dtype == 'dataframe':
+      if limit:
+        data = pandas.DataFrame([row for row in _data], columns=fields)
+      else:
+        data = pandas.DataFrame([row for row in _data], columns=fields)
+    else:
+      raise (Exception('{} is not recongnized.'.format(dtype)))
 
     secs = (datetime.datetime.now() - s_t).total_seconds()
     rate = round(len(data) / secs, 1)
@@ -614,22 +617,31 @@ class DBConn(object):
     rows = [get_rec(v) for v in sorted(views)]
     return rows
 
-  def get_columns(self, obj, object_type=None, echo=False):
+  def get_columns(self,
+                  obj,
+                  object_type=None,
+                  echo=False,
+                  include_schema_table=True):
     "Get column metadata for table"
-    Rec = namedtuple(
-      'Columns',
-      'schema table column_name type column_order nullable default autoincrement'
-    )
+    if include_schema_table:
+      headers = 'schema table id column_name type nullable default autoincrement'
+    else:
+      headers = 'id column_name type  nullable default autoincrement'
+
+    Rec = namedtuple('Columns', headers)
     self._fields = Rec._fields
     schema, table = self._split_schema_table(obj)
 
     def get_rec(r_dict, column_order):
-      r_dict['schema'] = schema
-      r_dict['table'] = table
+      if include_schema_table:
+        r_dict['schema'] = schema
+        r_dict['table'] = table
       r_dict['column_name'] = r_dict['name']
       r_dict['type'] = str(r_dict['type'])
-      r_dict['column_order'] = column_order
+      r_dict['id'] = column_order
       del r_dict['name']
+      if 'primary_key' in r_dict:
+        del r_dict['primary_key']
 
       if 'attrs' in r_dict:
         del r_dict['attrs']
@@ -839,6 +851,10 @@ def get_conn(db,
   elif db_dict.type.lower() == 'sqlserver':
     from .sqlserver import SQLServerConn
     conn = SQLServerConn(db_dict, echo=echo)
+
+  elif db_dict.type.lower() == 'sqlite':
+    from .sqlite import SQLiteConn
+    conn = SQLiteConn(db_dict, echo=echo)
 
   conns[db] = conn
   return conn

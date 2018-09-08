@@ -179,9 +179,7 @@ class OracleConn(DBConn):
         return counter
 
     except Exception as e:
-      message = get_exception_message().lower()
-      log(get_exception_message())
-      log(sql)
+      log(Exception('Error for SQL: ' + sql))
       raise e
 
     finally:
@@ -279,9 +277,7 @@ class OracleConn(DBConn):
         return counter
 
     except Exception as e:
-      message = get_exception_message().lower()
-      log(get_exception_message())
-      log(sql)
+      log(Exception('Error for SQL: ' + sql))
       raise e
 
     finally:

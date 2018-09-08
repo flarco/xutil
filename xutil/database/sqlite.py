@@ -106,9 +106,7 @@ class SQLiteConn(DBConn):
         return counter
 
     except Exception as e:
-      message = get_exception_message().lower()
-      log(get_exception_message())
-      log(sql)
+      log(Exception('Error for SQL: ' + sql))
       raise e
 
     # finally:
@@ -214,9 +212,7 @@ class SQLiteConn(DBConn):
           return counter
 
       except Exception as e:
-        message = get_exception_message().lower()
-        log(get_exception_message())
-        log(sql)
+        log(Exception('Error for SQL: ' + sql))
         raise e
 
     # finally:
@@ -276,8 +272,7 @@ class SQLiteConn(DBConn):
         log("Inserted {} records into table '{}'.".format(counter, table))
 
     except Exception as e:
-      message = get_exception_message().lower()
-      log(get_exception_message())
+      log(Exception('Error for SQL: ' + sql))
       raise e
 
     secs = (datetime.datetime.now() - s_t).total_seconds()

@@ -136,9 +136,15 @@ try:
     if isinstance(text, Exception):
       level = 'CRITICAL'
       error = text
-      text = 'ERROR: ' + str(error) + '\n' + ''.join(
+      # text = 'ERROR: ' + str(error) + '\n' + ''.join(
+      #   traceback.format_exception(
+      #     etype=type(error), value=error, tb=error.__traceback__))
+      text = 'ERROR: ' + ''.join(
         traceback.format_exception(
-          etype=type(error), value=error, tb=error.__traceback__))
+          etype=type(error),
+          value=error,
+          tb=error.__traceback__,
+        ))
 
     elif color == 'white':
       text_ = str(text)

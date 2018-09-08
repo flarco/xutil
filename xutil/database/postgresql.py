@@ -1,4 +1,4 @@
-import datetime, csv
+import datetime, csv, time
 from xutil.database.base import DBConn
 from xutil.helpers import (get_exception_message, now, log, struct,
                            is_gen_func, isnamedtupleinstance, get_dir_path)
@@ -178,52 +178,70 @@ class PostgreSQLConn(DBConn):
              rec_name='Record',
              dtype='namedtuple',
              yield_batch=False,
+             limit=None,
              echo=True):
     "Stream Select from SQL, yield records as they come in"
+    from psycopg2.extras import NamedTupleCursor
     self.reconnect(min_tresh=10)
+
     if echo: log("Streaming SQL for '{}'.".format(rec_name))
 
-    try:
-      self._do_execute('{} LIMIT 0'.format(sql)
-                       if 'limit ' not in sql.lower() else sql)
-    except Exception as e:
-      log(e)
-      log(sql)
-      raise e
-
-    self.field_types = self.get_cursor_fields(as_dict=False, native_type=False)
-    fields = [f for f in self.field_types]
-
-    if dtype == 'tuple':
-      make_rec = lambda row: row
-    else:
-      Record = namedtuple(rec_name.replace(' ', '_').replace('.', '_'), fields)
-      make_rec = lambda row: Record(*row)
-
     autocommit = self.connection.autocommit
-    self.connection.autocommit = False
+    if self.connection.autocommit:
+      self.connection.autocommit = False
 
     self._stream_counter = 0
+    fetch_size = limit if limit else self.fetch_size
+    make_rec = None
+    fields = None
+    done = False
 
-    with self.connection.cursor(name='cursor') as cursor:
-      cursor.itersize = self.fetch_size
+    cursor = self.connection.cursor(
+      name='cursor_' + str(int(time.time())), cursor_factory=NamedTupleCursor)
+    cursor.itersize = fetch_size
+
+    try:
       self._do_execute(sql, cursor)
+    except Exception as E:
+      self.connection.rollback()
+      done = True
+      raise E
 
-      while True:
-        rows = cursor.fetchmany(self.fetch_size)
-        if rows:
-          if yield_batch:
-            batch = [make_rec(r) for r in rows]
-            self._stream_counter += len(batch)
-            yield batch
-          else:
-            for row in rows:
-              self._stream_counter += 1
-              yield make_rec(row)
+    while not done:
+      if not make_rec:
+        row = cursor.fetchone()
+        fields = self.get_cursor_fields(cursor=cursor)
+        self._fields = fields
+        rows = [row] if row else []
+
+        if dtype == 'tuple':
+          make_rec = lambda row: list(row)
         else:
-          break
+          # since we're using NamedTupleCursor
+          make_rec = lambda row: row
+      else:
+        rows = cursor.fetchmany(fetch_size)
 
-      # self.connection.commit()
+      if not fields:
+        break
+
+      if rows:
+        if yield_batch:
+          batch = [make_rec(r) for r in rows]
+          self._stream_counter += len(batch)
+          yield batch
+        else:
+          for row in rows:
+            self._stream_counter += 1
+            yield make_rec(row)
+            if limit and self._stream_counter == limit:
+              done = True
+              break
+      else:
+        done = True
+
+    cursor.close()
+    self.connection.commit()
     # self.connection.autocommit = autocommit
 
   def insert_csv(self, table, file_path, delimiter=','):
@@ -343,9 +361,7 @@ class PostgreSQLConn(DBConn):
           return counter
 
       except Exception as e:
-        message = get_exception_message().lower()
-        log(get_exception_message())
-        log(sql)
+        log(Exception('Error for SQL: ' + sql))
         raise e
 
       # finally:
@@ -412,9 +428,7 @@ class PostgreSQLConn(DBConn):
       os.remove(temp_file_path)
 
     except Exception as e:
-      message = get_exception_message().lower()
-      log(get_exception_message())
-      log(sql)
+      log(Exception('Error for SQL: ' + sql))
       raise e
 
     # finally:
