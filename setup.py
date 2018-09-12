@@ -8,7 +8,7 @@ setup(
   author='Fritz Larco',
   author_email='flarco@live.com',
   url='https://github.com/flarco/xutil',
-  download_url='https://github.com/sheriferson/simplestatistics/tarball/0.2.5',
+  download_url='https://github.com/flarco/xutil.git',
   keywords=['xutil'],
   packages=find_packages(exclude=['tests']),
   include_package_data=True,
