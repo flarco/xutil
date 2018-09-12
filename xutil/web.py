@@ -11,6 +11,7 @@ import os, socket, json
 
 from xutil.helpers import (slog, elog, log, get_kw)
 from xutil.parallelism import Pipe, Worker
+from flask import Flask
 
 
 def generate_rmd_html(rmd_file,
@@ -260,6 +261,19 @@ def create_sio_client(host, port, response_map={}):
   return sio_client
 
 
+class MyFlask(Flask):
+  jinja_options = Flask.jinja_options.copy()
+  jinja_options.update(
+    dict(
+      block_start_string='(%',
+      block_end_string='%)',
+      variable_start_string='((',
+      variable_end_string='))',
+      comment_start_string='(#',
+      comment_end_string='#)',
+    ))
+
+
 class WebApp:
   '''
   A boilerplate for a web application using evenlet with flask & socketio.
@@ -289,29 +303,20 @@ class WebApp:
   app.run(port=5899)
   '''
 
-  def __init__(self, name):
+  def __init__(self, name, root_path=None, flask_app=None):
     import os, sys, time, json
     import socketio, socket
-    from flask import Flask, request
-
-    class MyFlask(Flask):
-      jinja_options = Flask.jinja_options.copy()
-      jinja_options.update(
-        dict(
-          block_start_string='(%',
-          block_end_string='%)',
-          variable_start_string='((',
-          variable_end_string='))',
-          comment_start_string='(#',
-          comment_end_string='#)',
-        ))
+    from flask import Flask, request, make_response, render_template
 
     self.name = name
     self.cookie_session_key = name + '_SID'
     self.sio = socketio.Server()
-    self.flask_app = MyFlask(__name__)
+    self.flask_app = flask_app if flask_app else MyFlask(
+      __name__, root_path=root_path)
     self.log = log
     self.request = request
+    self.make_response = make_response
+    self.render_template = render_template
 
     # Wrapper functions
     self.route = self.flask_app.route
@@ -346,3 +351,10 @@ class WebApp:
 
   def proc_request(self):
     return process_request(self.request)
+
+  def get_cookie_session_id(self):
+    import random, string
+    session_id = (self.request.cookies.get(self.cookie_session_key) or ''.join(
+      random.SystemRandom().choice(string.ascii_uppercase + string.digits +
+                                   string.ascii_lowercase) for _ in range(48)))
+    return session_id
