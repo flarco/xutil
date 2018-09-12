@@ -18,6 +18,76 @@ core:
     upper('{obj_type}'),upper('{table}'),upper('{schema}'))) as ddl
     from dual
 
+metadata:
+  all_tables: |
+    with tables as (
+      select
+        owner,
+        table_name,
+        num_rows,
+        last_analyzed
+      from sys.all_tables
+    )
+    select
+      col.owner as schema_name,
+      col.table_name as table_name,
+      case
+        when tables.table_name is null then 'VIEW'
+        else 'TABLE'
+      end as table_type,
+      count(col.column_name) as num_columns,
+      tables.num_rows as num_rows,
+      tables.last_analyzed
+    from sys.all_tab_columns col 
+    left join tables
+      on tables.owner = col.owner
+      and tables.table_name = col.table_name
+    group by
+      col.owner,
+      col.table_name, 
+      case
+        when tables.table_name is null then 'VIEW'
+        else 'TABLE'
+      end,
+      tables.num_rows,
+      tables.last_analyzed
+    order by col.owner, col.table_name
+  all_columns: |
+    with tables as (
+      select
+        owner,
+        table_name,
+        num_rows
+      from sys.all_tables
+    )
+    select
+      col.owner as schema_name,
+      col.table_name as table_name,
+      case
+        when tables.table_name is null then 'VIEW'
+        else 'TABLE'
+      end as table_type,
+      col.column_name as column_name,
+      col.data_type as column_type,
+      col.column_id as column_id,
+      col.num_distinct as num_distinct,
+      col.num_nulls as num_nulls,
+      tables.num_rows as num_rows,
+      case
+        when tables.num_rows = 0 then null
+        else col.num_distinct / tables.num_rows
+      end as prct_distinct,
+      case
+        when tables.num_rows = 0 then null
+        else col.num_nulls / tables.num_rows
+      end as prct_nulls,
+      col.last_analyzed
+    from sys.all_tab_columns col 
+    left join tables
+      on tables.owner = col.owner
+      and tables.table_name = col.table_name
+    order by col.owner, col.table_name, col.column_id
+
 analysis:
   field_stat_deep: |
     select

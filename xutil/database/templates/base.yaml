@@ -8,6 +8,7 @@ core:
 analysis:
   # table level
   table_count: |
+    -- table_count {table}
     select
       '{schema}' as schema_nm,
       '{table}' as table_nm,
@@ -15,6 +16,7 @@ analysis:
     from {schema}.{table}
 
   table_join_match: |
+    -- table_join_match "{t1}" vs "{t2}
     with T1 as (
       select
         {t1_fields1},
@@ -48,6 +50,7 @@ analysis:
     left join t2 on {conds}
 
   field_chars: |
+    -- field_chars {table}
     select
       '{schema}' as schema_nm,
       '{table}' as table_nm,
@@ -59,6 +62,7 @@ analysis:
     from {schema}.{table}
 
   field_pk_test: |
+    -- field_pk_test {table}
     select
       '{schema}.{table}' as table_nm,
       case when count(*) = count(distinct {field}) then 'PASS' else 'FAIL' end as result,
@@ -67,6 +71,7 @@ analysis:
     from {schema}.{table}
 
   field_stat: |
+    -- field_stat {table}
     select
       '{schema}' as schema_nm,
       '{table}' as table_nm,
@@ -75,13 +80,14 @@ analysis:
       count(*) as tot_cnt,
       count({field}) as f_cnt,
       count(*) - count({field}) as f_null_cnt,
-      round((count(*) - count({field})) / count(*)*100,1) as f_null_prct,
+      round(100.0 * (count(*) - count({field})) / count(*), 1) as f_null_prct,
       count(distinct {field}) as f_dstct_cnt,
-      round(count(distinct {field}) / count(*)*100,1) as f_dstct_prct,
+      round(100.0 * count(distinct {field}) / count(*), 1) as f_dstct_prct,
       count(*) - count(distinct {field}) as f_dup_cnt
     from {schema}.{table}
 
   field_stat_group: |
+    -- field_stat_group {table}
     select
       '{schema}' as schema_nm,
       '{table}' as table_nm,
@@ -91,14 +97,15 @@ analysis:
       count(*) as tot_cnt,
       count({field}) as f_cnt,
       count(*) - count({field}) as f_null_cnt,
-      round((count(*) - count({field})) / count(*)*100,1) as f_null_prct,
+      round(100.0 * (count(*) - count({field})) / count(*), 1) as f_null_prct,
       count(distinct {field}) as f_dstct_cnt,
-      round(count(distinct {field}) / count(*)*100,1) as f_dstct_prct,
+      round(100.0 * count(distinct {field}) / count(*), 1) as f_dstct_prct,
       count(*) - count(distinct {field}) as f_dup_cnt
     from {schema}.{table}
     group by {group_expr}
 
   field_stat_deep: |
+    -- field_stat_deep {table}
     select
       '{schema}' as schema_nm,
       '{table}' as table_nm,
@@ -107,9 +114,9 @@ analysis:
       count(*) as tot_cnt,
       count({field}) as f_cnt,
       count(*) - count({field}) as f_null_cnt,
-      round((count(*) - count({field})) / count(*)*100,1) as f_null_prct,
+      round(100.0 * (count(*) - count({field})) / count(*), 1) as f_null_prct,
       count(distinct {field}) as f_dstct_cnt,
-      round(count(distinct {field}) / count(*)*100,1) as f_dstct_prct,
+      round(100.0 * count(distinct {field}) / count(*), 1) as f_dstct_prct,
       count(*) - count(distinct {field}) as f_dup_cnt,
       cast(min({field}) as string) as f_min,
       cast(max({field}) as string) as f_max,
@@ -118,6 +125,7 @@ analysis:
     from {schema}.{table}
 
   distro_field: |
+    -- distro_field {field}
     with t1 as (
       select
         '{field}' as field,
@@ -138,13 +146,14 @@ analysis:
       t1.field,
       {field} as value,
       cnt,
-      round(100 * cnt / ttl_cnt, 2) as prct
+      round(100.0 * cnt / ttl_cnt, 2) as prct
     from t1
     join t2
       on t1.field = t2.field
     order by cnt desc
 
   distro_field_group: |
+    -- distro_field_group {field}
     with t1 as (
       select
         '{field}' as field,
@@ -167,13 +176,14 @@ analysis:
       t1.group_exp,
       {field} as value,
       cnt,
-      round(100 * cnt / ttl_cnt, 2) as prct
+      round(100.0 * cnt / ttl_cnt, 2) as prct
     from t1
     join t2
       on t1.field = t2.field
     order by cnt desc
 
   distro_field_date: |
+    -- distro_field_date {field}
     with t1 as (
         select
           '{field}' as field,
@@ -181,7 +191,6 @@ analysis:
           month({field}) as month,
           count(1) cnt
         from {schema}.{table}
-        {where_clause}
         group by year({field}), month({field})
         order by year({field}), month({field})
       )
@@ -196,13 +205,14 @@ analysis:
         t1.year,
         t1.month,
         cnt,
-        round(100 * cnt / ttl_cnt, 2) as prct
+        round(100.0 * cnt / ttl_cnt, 2) as prct
       from t1
       join t2
         on t1.field = t2.field
       order by t1.year, t1.month
 
   distro_field_date_wide: |
+    -- distro_field_date {table}
     select
       '{date_field}' as date_field,
       year({date_field}) as year,

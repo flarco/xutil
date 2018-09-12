@@ -34,10 +34,11 @@ from xutil.diskio import read_yaml, write_csvs
 
 conns = {}
 
-_fwk = lambda k, v: "{} = '{}'".format(k, v)
-_fw = lambda sep, **kws: sep.join([_fwk(k, v) for k, v in kws.items()])  # Format WHERE
-fwa = lambda **kws: _fw(' and ', **kws)  # Format WHERE AND
-fwo = lambda **kws: _fw(' or ', **kws)  # Format WHERE OR
+_fwklike = lambda k, v: "lower({}) like lower('{}')".format(k, v)
+_fwkeq = lambda k, v: "{} = '{}'".format(k, v)
+_fw = lambda sep, _fwkop, **kws: sep.join([_fwkop(k, v) for k, v in kws.items()])  # Format WHERE
+fwa = lambda _fwkop=_fwkeq, **kws: _fw(' and ', _fwkop, **kws)  # Format WHERE AND
+fwo = lambda _fwkop=_fwkeq, **kws: _fw(' or ', _fwkop, **kws)  # Format WHERE OR
 rows_to_dicts = lambda rows: [row._asdict() for row in rows]
 
 
@@ -450,7 +451,6 @@ class DBConn(object):
       if not self._fields:
         break
       rows = self.cursor.fetchmany(fetch_size)
-      log(' -> {}'.format(len(rows)))
       if rows:
         if yield_batch:
           batch = [make_rec(r) for r in rows]
@@ -525,8 +525,9 @@ class DBConn(object):
         len(data), secs, rate))
     return data
 
-  def _split_schema_table(self, obj):
-    schema, table = obj.split('.') if '.' in obj else (self.username, obj)
+  def _split_schema_table(self, table_name):
+    schema, table = table_name.split('.') if '.' in table_name else (
+      self.username, table_name)
     return schema, table
 
   def template(self, template_key_str):
@@ -618,7 +619,7 @@ class DBConn(object):
     return rows
 
   def get_columns(self,
-                  obj,
+                  table_name,
                   object_type=None,
                   echo=False,
                   include_schema_table=True):
@@ -630,7 +631,7 @@ class DBConn(object):
 
     Rec = namedtuple('Columns', headers)
     self._fields = Rec._fields
-    schema, table = self._split_schema_table(obj)
+    schema, table = self._split_schema_table(table_name)
 
     def get_rec(r_dict, column_order):
       if include_schema_table:
@@ -664,11 +665,11 @@ class DBConn(object):
 
     return rows
 
-  def get_primary_keys(self, obj, echo=False):
+  def get_primary_keys(self, table_name, echo=False):
     "Get PK metadata for table"
     Rec = namedtuple('PKs', 'schema table pk_name column_name column_order')
     self._fields = Rec._fields
-    schema, table = self._split_schema_table(obj)
+    schema, table = self._split_schema_table(table_name)
 
     def get_rec(col, pk_name, column_order):
       r_dict = {}
@@ -692,12 +693,12 @@ class DBConn(object):
 
     return rows
 
-  def get_indexes(self, obj, echo=False):
+  def get_indexes(self, table_name, echo=False):
     "Get indexes metadata for table"
     Rec = namedtuple(
       'Indexes', 'schema table index_name column_name column_order unique')
     self._fields = Rec._fields
-    schema, table = self._split_schema_table(obj)
+    schema, table = self._split_schema_table(table_name)
 
     def get_rec(r_dict):
       r_dict['schema'] = schema
@@ -720,39 +721,59 @@ class DBConn(object):
 
     return rows
 
-  def get_ddl(self, obj, object_type=None, echo=True):
+  def get_ddl(self, table_name, object_type=None, echo=True):
     "Get ddl for table"
     Rec = namedtuple('DDL', 'ddl')
     self._fields = Rec._fields
-    schema, obj = self._split_schema_table(obj)
+    schema, table = self._split_schema_table(table_name)
 
     sql_tmpl = self.template('metadata.ddl')
     if sql_tmpl:
       rows = self.select(
         sql_tmpl.format(
           schema=schema,
-          table=obj,
+          table=table,
           obj_type=object_type,
         ))
     else:
       self.get_engine(echo=echo)
-      ddl = self.engine_inspect.get_view_definition(obj, schema=schema)
+      ddl = self.engine_inspect.get_view_definition(table, schema=schema)
       rows = [Rec(ddl)] if ddl else []
 
     return rows
 
-  def analyze_fields(self, analysis, obj, fields=[], as_sql=False, **kwargs):
+  def get_all_columns(self):
+    "Get all columns for all tables / views"
+    sql_tmpl = self.template('metadata.all_columns')
+    if not sql_tmpl:
+      raise Exception('get_all_columns not implemented for {}'.format(
+        self.type))
+
+    rows = self.select(sql_tmpl)
+    return rows
+
+  def get_all_tables(self):
+    "Get all tables / views"
+    sql_tmpl = self.template('metadata.all_tables')
+    if not sql_tmpl:
+      raise Exception('get_all_tables not implemented for {}'.format(
+        self.type))
+
+    rows = self.select(sql_tmpl)
+    return rows
+
+  def analyze_fields(self, analysis, table_name, fields=[], as_sql=False, **kwargs):
     """Base function for field level analysis"""
-    if '.' not in obj:
-      raise Exception("obj must have schema and object name in it with a '.'")
+    if '.' not in table_name:
+      raise Exception("table_name must have schema and name in it with a '.'")
     if analysis not in self.template_dict['analysis']:
       raise Exception("'{}' not found in template for '{}'.".format(
         analysis, self.type))
 
-    schema, table = self._split_schema_table(obj)
+    schema, table = self._split_schema_table(table_name)
 
     # get field type
-    field_rows = self.get_columns(obj)
+    field_rows = self.get_columns(table_name)
     field_type = {r.column_name.lower(): r.type for r in field_rows}
 
     if not fields:

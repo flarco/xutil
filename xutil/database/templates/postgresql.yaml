@@ -15,6 +15,66 @@ core:
     from (select * from {temp_table}) as t2
     where {pk_fields_equal2}
 
+metadata:
+  all_tables: |
+    with tables as (
+      select
+        table_catalog,
+        table_schema,
+        table_name,
+        case table_type
+          when 'BASE TABLE' then 'TABLE'
+          else table_type
+        end as table_type
+      from information_schema.tables
+    )
+    select
+      cols.table_schema as schema_name,
+      cols.table_name as table_name,
+      tables.table_type as table_type,
+      count(cols.column_name) as num_columns,
+      null::int num_rows,
+      null::date last_analyzed
+    from information_schema.columns cols
+    join tables
+      on tables.table_catalog = cols.table_catalog
+      and tables.table_schema = cols.table_schema
+      and tables.table_name = cols.table_name
+      group by cols.table_catalog, cols.table_schema, tables.table_type, cols.table_name
+      order by cols.table_catalog, cols.table_schema, cols.table_name
+
+  all_columns: |
+    with tables as (
+      select
+        table_catalog,
+        table_schema,
+        table_name,
+        case table_type
+          when 'BASE TABLE' then 'TABLE'
+          else table_type
+        end as table_type
+      from information_schema.tables
+    )
+    select
+      cols.table_schema as schema_name,
+      cols.table_name as table_name,
+      tables.table_type as table_type,
+      cols.column_name as column_name,
+      cols.data_type as column_type,
+      cols.ordinal_position as column_id,
+      null::int num_distinct,
+      null::int num_nulls,
+      null::int num_rows,
+      null::int prct_distinct,
+      null::int prct_nulls,
+      null::date last_analyzed
+    from information_schema.columns cols
+    join tables
+      on tables.table_catalog = cols.table_catalog
+      and tables.table_schema = cols.table_schema
+      and tables.table_name = cols.table_name
+      order by cols.table_catalog, cols.table_schema, cols.table_name, cols.ordinal_position
+
 analysis:
   field_chars: |
     select
@@ -37,9 +97,9 @@ analysis:
       count(*) as tot_cnt,
       count({field}) as f_cnt,
       count(*) - count({field}) as f_null_cnt,
-      round((count(*) - count({field})) / count(*)*100,1) as f_null_prct,
+      round(100.0 * (count(*) - count({field})) / count(*),1) as f_null_prct,
       count(distinct {field}) as f_dstct_cnt,
-      round(count(distinct {field}) / count(*)*100,1) as f_dstct_prct,
+      round(100.0 * count(distinct {field}) / count(*),1) as f_dstct_prct,
       count(*) - count(distinct {field}) as f_dup_cnt,
       min({field})::text as f_min,
       max({field})::text as f_max,
@@ -68,7 +128,7 @@ analysis:
       t1.field,
       {field} as value,
       cnt,
-      round(100 * cnt / ttl_cnt, 2) as prct
+      round(100.0 * cnt / ttl_cnt, 2) as prct
     from t1
     join t2
       on t1.field = t2.field
@@ -97,7 +157,7 @@ analysis:
       t1.group_exp,
       {field} as value,
       cnt,
-      round(100 * cnt / ttl_cnt, 2) as prct
+      round(100.0 * cnt / ttl_cnt, 2) as prct
     from t1
     join t2
       on t1.field = t2.field
@@ -107,13 +167,12 @@ analysis:
     with t1 as (
         select
           '{field}'::text as field,
-          year({field}) as year,
-          month({field}) as month,
+          extract(year from {field}) as year,
+          extract(month from {field}) as month,
           count(1) cnt
         from {schema}.{table}
-        {where_clause}
-        group by year({field}), month({field})
-        order by year({field}), month({field})
+        group by extract(year from {field}), extract(month from {field})
+        order by extract(year from {field}), extract(month from {field})
       )
       , t2 as (
         select '{field}'::text as field, count(1) ttl_cnt
@@ -126,7 +185,7 @@ analysis:
         t1.year,
         t1.month,
         cnt,
-        round(100 * cnt / ttl_cnt, 2) as prct
+        round(100.0 * cnt / ttl_cnt, 2) as prct
       from t1
       join t2
         on t1.field = t2.field

@@ -228,7 +228,7 @@ class HiveConn(DBConn):
 
   def _std_get_columns(self, schema, table, rows):
     "Standardize for get_columns"
-    make_rec = lambda r: dict(name=r.col_name, type=r.data_type, schema=schema, table=table, nullable=None, default=None, autoincrement=None)
+    make_rec = lambda r: dict(name=r.col_name, type=r.data_type, schema=schema, table=table, nullable=None, default=None, autoincrement=None,)
     data = [make_rec(r) for r in rows]
     return data
 
