@@ -215,6 +215,7 @@ class DBConn(object):
         continue
 
       try:
+        self._fields = []
         rows = self.select(
           sql,
           rec_name=query_name,

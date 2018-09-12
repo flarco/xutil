@@ -1124,7 +1124,7 @@ class SparkConn(HiveConn):
     else:
       data = df1.collect()
 
-    self.last_fields = df1.columns
+    self._fields = df1.columns
     secs = (datetime.datetime.now() - s_t).total_seconds()
     rate = round(len(data) / secs, 1)
 
