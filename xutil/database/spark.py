@@ -35,8 +35,8 @@ class Spark:
       str(version).replace('.', ''), os.getenv('USER'), os.getpid())
 
     # import PySpark
-    spark_home = spark_home if spark_home else findspark.find()
-    findspark.init(spark_home=spark_home)
+    # spark_home = spark_home if spark_home else findspark.find()
+    # findspark.init(spark_home=spark_home)
 
     from pyspark import SparkContext, SQLContext, SparkConf
     from pyspark.sql import SparkSession

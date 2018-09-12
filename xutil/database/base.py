@@ -640,12 +640,10 @@ class DBConn(object):
       r_dict['column_name'] = r_dict['name']
       r_dict['type'] = str(r_dict['type'])
       r_dict['id'] = column_order
-      del r_dict['name']
-      if 'primary_key' in r_dict:
-        del r_dict['primary_key']
 
-      if 'attrs' in r_dict:
-        del r_dict['attrs']
+      for k in list(r_dict):
+        if k not in headers.split():
+          del r_dict[k]
 
       if '(' in r_dict['type']:
         r_dict['type'] = r_dict['type'].split('(')[0]
@@ -762,7 +760,12 @@ class DBConn(object):
     rows = self.select(sql_tmpl)
     return rows
 
-  def analyze_fields(self, analysis, table_name, fields=[], as_sql=False, **kwargs):
+  def analyze_fields(self,
+                     analysis,
+                     table_name,
+                     fields=[],
+                     as_sql=False,
+                     **kwargs):
     """Base function for field level analysis"""
     if '.' not in table_name:
       raise Exception("table_name must have schema and name in it with a '.'")
@@ -823,7 +826,6 @@ def get_conn(db,
              use_jdbc=False,
              globs=globals(),
              master=None,
-             spark_version=2.2,
              conn_expire_min=10,
              spark_hive=True) -> DBConn:
   global conns
@@ -855,7 +857,6 @@ def get_conn(db,
     db_dict['restart'] = spark_restart
     db_dict['hive_enabled'] = db_dict.hive_enabled or spark_hive
     db_dict['master'] = master
-    db_dict['version'] = spark_version
     conn = SparkConn(db_dict, echo=echo)
 
   elif db_dict.type.lower() == 'hive':
