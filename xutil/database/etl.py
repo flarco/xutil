@@ -352,7 +352,7 @@ def ff_to_db(src_ff, src_deli, tgt_db, tgt_table,
     conn = get_conn(tgt_db_prof.name)
     sparko = conn.sparko
   else:
-    sparko = Spark(hive_enabled=False)
+    sparko = Spark(hive_enabled=False, version=2.2)
   log("Loading file {}..".format(src_ff))
 
   df1 = sparko.read_csv2(
@@ -425,7 +425,7 @@ def ff_to_ff(src_ff, src_deli,
   return dict(completed=True)
 
 
-def get_sql_table_split(src_db, table, partition_col, partitions=10, where_clause='', echo=False):
+def get_sql_table_split(src_db, table, partition_col, partitions=10, where_clause='', cov_utf8=True, echo=False):
 
   ######## Split and group the dates
 
@@ -452,6 +452,8 @@ def get_sql_table_split(src_db, table, partition_col, partitions=10, where_claus
 
   ######## number of groups should equal partitions
   for row in split_data:
+    val = row.trunc_field.strftime('%Y-%m-%d') if isinstance(
+      row.trunc_field, datetime.datetime) else row.trunc_field
     curr_group.append(row.trunc_field)
     curr_group_size += row.cnt
     if curr_group_size > part_size:
@@ -494,14 +496,14 @@ def get_sql_table_split(src_db, table, partition_col, partitions=10, where_claus
       or_null=' or {} is null'.format(partition_col) if None in group else '')
     sqls.append(sql)
 
-  return sqls
+  return sqls, fields, total_cnt
 
 
 def db_table_to_ff_stream(src_db,
                      table,
                      partition_col,
+                     out_folder,
                      where_clause='',
-                     out_folder=None,
                      partitions=10,
                      file_name=None,
                      log=log,
@@ -539,12 +541,13 @@ def db_table_to_ff_stream(src_db,
       queue.put(('exception', E))
 
   # Split SELECT sql statements
-  sqls = get_sql_table_split(
+  sqls, fields, total_cnt = get_sql_table_split(
     src_db,
     table,
     partition_col,
     partitions=10,
-    where_claus=where_clause,
+    where_clause=where_clause,
+    cov_utf8=cov_utf8,
     echo=echo)
 
   ######## delete if exists and create folder
@@ -565,8 +568,7 @@ def db_table_to_ff_stream(src_db,
     csv_paths.append(csv_path)
     queue = Queue()
     csv_proc = Process(
-      target=sql_to_csv,
-      args=(conn._cred.name, sql, csv_path, fields, queue, gzip))
+      target=sql_to_csv, args=(src_db, sql, csv_path, fields, queue, gzip))
 
     proc_items[csv_path] = dict(
       sql=sql, proc=csv_proc, queue=queue, prog_cnt=0)

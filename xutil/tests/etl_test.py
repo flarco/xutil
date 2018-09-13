@@ -6,9 +6,12 @@ from xutil import log
 def test_db_table_to_ff_stream():
   from xutil import get_conn
   from xutil.database.etl import db_table_to_ff_stream
-  conn = get_conn('ORCL_XENIAL')
   csv_path = db_table_to_ff_stream(
-    conn, 'HR.EMPLOYEES', 'HIRE_DATE', out_folder='/tmp', gzip=False)
+    'ORCL_XENIAL',
+    'HR.EMPLOYEES',
+    "to_number(to_char(HIRE_DATE, 'j'))",
+    out_folder='/tmp',
+    gzip=False)
 
 
 def test_stream(db, sql):
@@ -68,26 +71,27 @@ def test_db_to_hive():
 
   # Select from Oracle
   # Create into Hive via HDFS
-  # db_to_db(
-  #   src_db='ORCL_XENIAL',
-  #   src_table='HR.EMPLOYEES',
-  #   tgt_db='SPARK_HIVE',
-  #   tgt_table='default.HR_EMPLOYEES',
-  #   partition_col="MANAGER_ID",
-  #   hdfs_folder='tmp',
-  #   partitions=5)
+  db_to_db(
+    src_db='ORCL_XENIAL',
+    src_table='HR.EMPLOYEES',
+    tgt_db='SPARK_HIVE',
+    tgt_table='default.HR_EMPLOYEES',
+    partition_col="MANAGER_ID",
+    out_folder='/tmp',
+    hdfs_folder='tmp',
+    partitions=5)
 
   # Select from PG
   # Create into Hive via HDFS
-  db_to_db(
-    src_db='PG_XENIAL',
-    src_table='housing.orange_county_data',
-    tgt_db='SPARK_HIVE',
-    tgt_table='default.orange_county_data',
-    tgt_mode='overwrite',
-    hdfs_folder='tmp',
-    partition_col="trunc(extract(epoch from date_of_sale)/(60*60*24))::int",
-    partitions=10)
+  # db_to_db(
+  #   src_db='PG_XENIAL',
+  #   src_table='housing.orange_county_data',
+  #   tgt_db='SPARK_HIVE',
+  #   tgt_table='default.orange_county_data',
+  #   tgt_mode='overwrite',
+  #   hdfs_folder='tmp',
+  #   partition_col="trunc(extract(epoch from date_of_sale)/(60*60*24))::int",
+  #   partitions=10)
 
   # Select from Oracle
   # Create in PG
@@ -154,8 +158,8 @@ def test_hive_to_db():
 
 
 if __name__ == '__main__':
-  # test_db_table_to_ff_stream()
+  test_db_table_to_ff_stream()
   # test_db_to_hive()
-  test_db_todb_stream()
+  # test_db_todb_stream()
   # test_stream('PG_XENIAL', 'select * from housing.orange_county_data')
   # test_stream('ORCL_XENIAL', 'select * from HR.orange_county_data')

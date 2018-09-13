@@ -38,6 +38,8 @@ class Spark:
     # spark_home = spark_home if spark_home else findspark.find()
     # findspark.init(spark_home=spark_home)
 
+    os.environ['SPARK_HOME'] = spark_home
+
     from pyspark import SparkContext, SQLContext, SparkConf
     from pyspark.sql import SparkSession
     active_sc = SparkContext._active_spark_context
@@ -96,6 +98,7 @@ class Spark:
       del os.environ['SPARK_CLASSPATH']
 
     if master: conf['spark.master'] = master
+    if hive_enabled: conf["spark.sql.catalogImplementation"] = "hive"
 
     for c in conf_def:
       conf[c] = conf_def[c] if c not in conf else conf[c]
@@ -136,15 +139,19 @@ class Spark:
     if restart:
       SparkContext._gateway = None
 
-    gateway, proc = self._launch_gateway(conf=sparkconf)
-    self._launch_gateway_output_handler(proc, prog_handler)
+    gateway = proc = None
+    # gateway, proc = self._launch_gateway(conf=sparkconf)
+    # self._launch_gateway_output_handler(proc, prog_handler)
     sc = SparkContext(
       appName=app_name, sparkHome=sparkHome, conf=sparkconf, gateway=gateway)
 
     if hive_enabled:
       hiveContext = HiveContext(sc)
+      spark = SparkSession.builder.appName(app_name).config(
+        conf=sparkconf).enableHiveSupport().getOrCreate()
+    else:
+      spark = SparkSession(sc)
 
-    spark = SparkSession(sc)
 
     return sc, spark, proc
 
@@ -213,6 +220,7 @@ class Spark:
           return ""
 
       while exit_queue.empty():
+        time.sleep(0.05)
         val = non_block_read(proc.stdout)
         if val: spark_log_handler(val, prog_handler)
 

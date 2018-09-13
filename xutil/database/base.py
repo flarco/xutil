@@ -856,7 +856,7 @@ def get_conn(db,
   elif db_dict.type.lower() == 'spark':
     from .spark import SparkConn
     db_dict['restart'] = spark_restart
-    db_dict['hive_enabled'] = db_dict.hive_enabled or spark_hive
+    db_dict['hive_enabled'] = db_dict.hive_enabled
     db_dict['master'] = master
     conn = SparkConn(db_dict, echo=echo)
 
