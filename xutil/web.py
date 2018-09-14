@@ -306,7 +306,7 @@ class WebApp:
   def __init__(self, name, root_path=None, flask_app=None):
     import os, sys, time, json
     import socketio, socket
-    from flask import Flask, request, make_response, render_template
+    from flask import Flask, request, make_response, render_template, send_from_directory
 
     self.name = name
     self.cookie_session_key = name + '_SID'
@@ -317,6 +317,7 @@ class WebApp:
     self.request = request
     self.make_response = make_response
     self.render_template = render_template
+    self.send_from_directory = send_from_directory
 
     # Wrapper functions
     self.route = self.flask_app.route
