@@ -1,4 +1,4 @@
-import datetime, os, sys, time, psutil, re
+import datetime, os, sys, time, psutil, re, socket
 from collections import OrderedDict, namedtuple
 import findspark, socket
 
@@ -113,7 +113,7 @@ class Spark:
     self.hive_enabled = hive_enabled
     self.version = version
     self.sc = sc
-    self.uiWebUrl = sc.uiWebUrl
+    self.uiWebUrl = 'http://{}:{}'.format(socket.gethostname(), sc.uiWebUrl.split(':')[-1])
     self.spark = spark
 
   def get_master(self):

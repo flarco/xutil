@@ -598,6 +598,7 @@ class DBConn(object):
       tables = self.engine_inspect.get_table_names(schema)
 
     rows = [get_rec(t) for t in sorted(tables)]
+    self._fields = Rec._fields
     return rows
 
   def get_views(self, schema, echo=True):
@@ -617,6 +618,7 @@ class DBConn(object):
       views = self.engine_inspect.get_view_names(schema)
 
     rows = [get_rec(v) for v in sorted(views)]
+    self._fields = Rec._fields
     return rows
 
   def get_columns(self,
@@ -661,7 +663,7 @@ class DBConn(object):
       rows = self.engine_inspect.get_columns(table, schema=schema)
 
     rows = [get_rec(r_dict, i + 1) for i, r_dict in enumerate(rows)]
-
+    self._fields = Rec._fields
     return rows
 
   def get_primary_keys(self, table_name, echo=False):
@@ -739,6 +741,7 @@ class DBConn(object):
       ddl = self.engine_inspect.get_view_definition(table, schema=schema)
       rows = [Rec(ddl)] if ddl else []
 
+    self._fields = Rec._fields
     return rows
 
   def get_all_columns(self):
