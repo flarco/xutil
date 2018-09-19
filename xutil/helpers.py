@@ -3,7 +3,7 @@ import datetime, time
 import json, atexit
 import os, signal
 import re, traceback
-import sys
+import sys, socket
 from collections import namedtuple, OrderedDict
 from decimal import Decimal
 from pathlib import Path
@@ -14,6 +14,8 @@ try:
   color_enabled = True
 except ImportError:
   color_enabled = False
+
+host_name = socket.gethostname()
 
 ### LAMBDAS ############################
 
@@ -432,6 +434,37 @@ def isnamedtupleinstance(x):
   f = getattr(t, '_fields', None)
   if not isinstance(f, tuple): return False
   return all(type(n) == str for n in f)
+
+
+def get_process_data(p):
+  mem_info = p.memory_info()
+  cpu_times = p.cpu_times()
+  rec = p.as_dict()
+  # rec = dict(
+  #   date_time=now(),
+  #   host_name=host_name,
+  #   pid=p.pid,
+  #   # cmdline = str(p.cmdline()),
+  #   cmdline=' '.join(p.cmdline()).replace('\n', ' ').replace('|', ' '),
+  #   cpu_percent=_rec['cpu_percent'] or 0,
+  #   cpu_times_user=cpu_times.user,
+  #   cpu_times_system=cpu_times.system,
+  #   cpu_times_children_user=cpu_times.children_user,
+  #   cpu_times_children_system=cpu_times.children_system,
+  #   create_time=p.create_time(),
+  #   # cwd = p.cwd(),
+  #   # exe = p.exe(),
+  #   # io_counters = p.io_counters(),
+  #   memory_info_rss=mem_info.rss,
+  #   memory_info_vms=mem_info.vms,
+  #   # memory_info_shared=mem_info.shared,
+  #   memory_percent=p.memory_percent(),
+  #   name=p.name().replace('\n', ' '),
+  #   username=p.username().replace('\n', ' '),
+  #   status=p.status().replace('\n', ' '),
+  #   num_threads=p.num_threads(),
+  # )
+  return rec
 
 
 class DictTree:
