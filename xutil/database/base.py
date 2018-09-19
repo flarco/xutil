@@ -769,8 +769,12 @@ class DBConn(object):
                      table_name,
                      fields=[],
                      as_sql=False,
+                     union=True,
+                     expr_func_map={},
                      **kwargs):
-    """Base function for field level analysis"""
+    """Base function for field level analysis
+      expr_func_map: contains mapping for expression to SQL function to all fields
+    """
     if '.' not in table_name:
       raise Exception("table_name must have schema and name in it with a '.'")
     if analysis not in self.template_dict['analysis']:
@@ -786,15 +790,23 @@ class DBConn(object):
     if not fields:
       fields = [r.column_name for r in field_rows]
 
-    sql = ' \nunion all\n'.join([
+    for expr in list(expr_func_map):
+      tmpl_path = 'function.' + expr_func_map[expr]
+      expr_func_map[expr] = ',\n'.join([
+        self.template(tmpl_path).format(field=field)
+        for field in [r.column_name for r in field_rows]
+      ])
+
+    sep = ' \nunion all\n' if union else ' \n ;\n'
+    sql = sep.join([
       self.template('analysis.' + analysis).format(
         schema=schema,
         field=field,
         table=table,
         type=field_type[field.lower()],
+        **expr_func_map,
         **kwargs) for field in fields
     ])
-
     return sql if as_sql else self.select(sql, analysis, echo=False)
 
   def analyze_tables(self, analysis, tables=[], as_sql=False, **kwargs):

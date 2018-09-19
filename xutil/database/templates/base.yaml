@@ -124,6 +124,24 @@ analysis:
       max(length({field})) as f_max_len
     from {schema}.{table}
 
+  fill_cnt_group_field: |
+    -- fill_cnt_group_field {table}
+    select
+      {field},
+      {fill_cnt_fields_sql}
+    from {schema}.{table}
+    group by {field}
+    order by {field}
+
+  fill_rate_group_field: |
+    -- fill_rate_group_field {table}
+    select
+      {field},
+      {fill_rate_fields_sql}
+    from {schema}.{table}
+    group by {field}
+    order by {field}
+
   distro_field: |
     -- distro_field {field}
     with t1 as (
@@ -262,6 +280,8 @@ routine:
 function:
   replace: replace({string_expr}, {to_replace}, {replacement})
   str_utf8: { field }
+  fill_cnt_field: count({field}) as cnt_{field}
+  fill_rate_field: round(100.0 * count({field}) / count(1), 2) as prct_{field}
 
 variables:
   tmp_folder: /tmp
