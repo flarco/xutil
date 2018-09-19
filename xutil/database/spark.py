@@ -1109,7 +1109,7 @@ class SparkConn(HiveConn):
   def get_cursor_fields(self):
     "Get fields of active Select cursor"
 
-    return self.last_fields
+    return self._fields
 
   def select(self,
              sql,
