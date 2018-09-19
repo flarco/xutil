@@ -146,7 +146,7 @@ def send_email_html(smtp,
 def send_email_exchange(to_address,
                         subject,
                         body_text,
-                        sender='ocds.no-reply@thehartford.com',
+                        sender,
                         attachments=[],
                         image_paths=[],
                         html=False):
@@ -194,7 +194,7 @@ def send_email_exchange(to_address,
   # Send the message via our SMTP server
   SMTP_SERVER = os.getenv("SMTP_SERVER")
   if not SMTP_SERVER:
-    log(Exception('Env SMTP_SERVER is not defined!'))
+    raise Exception('Env SMTP_SERVER is not defined!')
 
   s = smtplib.SMTP(SMTP_SERVER)
   s.sendmail(sender, to_address, msg.as_string())
