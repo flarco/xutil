@@ -29,6 +29,7 @@ setup(
     "findspark",
     "sqlalchemy",
     "halo",
+    "prettytable",
 
     # web
     "python-socketio",
