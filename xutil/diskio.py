@@ -69,6 +69,7 @@ def read_file(file_path, read_lines=False, mode='r', encoding='utf8'):
     stream = BytesIO(Z.get_data(file_path))
     return stream.read()
 
+  encoding = None if 'b' in mode else encoding
   with open(file_path, mode, encoding=encoding) as stream:
     if read_lines:
       return stream.readline()
