@@ -105,6 +105,8 @@ class DBConn(object):
     """Re-Connect to Database if minute threshold reached"""
     if (now() - self.last_connect).total_seconds() > min_tresh * 60:
       log('Reconnecting to {}...'.format(self.name))
+      if self.cursor is not None:
+        self.cursor.close()
       self.connect()
       self.last_connect = now()
 
