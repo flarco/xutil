@@ -113,7 +113,8 @@ class Spark:
     self.hive_enabled = hive_enabled
     self.version = version
     self.sc = sc
-    self.uiWebUrl = 'http://{}:{}'.format(socket.gethostname(), sc.uiWebUrl.split(':')[-1])
+    self.uiWebUrl = sc.uiWebUrl
+    self.local_uiWebUrl = 'http://{}:{}'.format(socket.gethostname(), sc.uiWebUrl.split(':')[-1])
     self.spark = spark
 
   def get_master(self):
