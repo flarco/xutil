@@ -545,7 +545,7 @@ def db_table_to_ff_stream(src_db,
     src_db,
     table,
     partition_col,
-    partitions=10,
+    partitions=partitions,
     where_clause=where_clause,
     cov_utf8=cov_utf8,
     echo=echo)
