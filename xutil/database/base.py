@@ -837,11 +837,9 @@ def get_conn(db,
              use_beeline=False,
              use_spark=False,
              echo=True,
-             spark_restart=False,
              reconnect=False,
              use_jdbc=False,
              globs=globals(),
-             master=None,
              conn_expire_min=10,
              spark_hive=True) -> DBConn:
   global conns
@@ -870,9 +868,6 @@ def get_conn(db,
 
   elif db_dict.type.lower() == 'spark':
     from .spark import SparkConn
-    db_dict['restart'] = spark_restart
-    db_dict['hive_enabled'] = db_dict.hive_enabled
-    db_dict['master'] = master
     conn = SparkConn(db_dict, echo=echo)
 
   elif db_dict.type.lower() == 'hive':
