@@ -183,6 +183,8 @@ def db_to_db(src_db,
   order_by = get_kw('order_by', [], kwargs)
   delete_after = get_kw('delete_after', False, kwargs)
 
+  partition_col = partition_col if partition_col else get_partition_col(src_db, src_table)
+
   if tgt_db_prof.type in ('hive', 'spark') and src_db_prof.type not in (
       'hive', 'spark') and not use_jdbc:
 
@@ -229,7 +231,7 @@ def db_to_db(src_db,
     )
   else:
     # Use JDBC
-    sparko = Spark(hive_enabled=False)
+    sparko = Spark(hive_enabled=False, spark_home=os.environ['SPARK_HOME'])
     if src_db_prof.type in ('hive', 'spark'):
       log("Reading Hive Table : " + src_table)
       sparko.sql('REFRESH TABLE ' + src_table)
@@ -423,6 +425,64 @@ def ff_to_ff(src_ff, src_deli,
     globals()[kwargs['tgt_post_proc']](tgt_ff, log=log)
 
   return dict(completed=True)
+
+
+def get_partition_col(src_db, table, n=20000):
+  """Automatically detect a suitable partition column with n sample records"""
+  conn = get_conn(src_db)
+  field_rows = conn.get_columns(table, native_type=False)
+  fields = [r.column_name.lower() for r in field_rows]
+  number_fields_i = [i for i,r in enumerate(field_rows) if r.type in ('integer', 'double', 'decimal')]
+  date_fields_i = [i for i,r in enumerate(field_rows) if r.type in ('datetime')]
+  fields_i = date_fields_i + number_fields_i
+  fields_stat = {
+    fields[fi]: dict(nulls=0, uniques=set([]), min=None, max=None, ii=ii)
+    for ii, fi in enumerate(fields_i)
+  }
+
+  date_conv = lambda f: conn.template('function.date_to_int').format(field=f)
+  num_conv = lambda f: conn.template('function.number_to_int').format(field=f)
+  fields_expr = [date_conv(fields[i])
+                for i in date_fields_i] + [num_conv(fields[i]) for i in number_fields_i]
+  fields_sql = ', '.join('{} as {}'.format(fexpr, fields[fields_i[ii]]) for ii, fexpr in enumerate(fields_expr))
+  sql = conn.template('core.sample').format(fields=fields_sql, table=table, n=n)
+  data = conn.select(sql, dtype='tuple')
+  fields = [f.lower() for f in conn._fields]
+
+  if len(data) < n-2:
+    return None
+
+  for row in data:
+    for fi, val in enumerate(row):
+      f = fields[fi]
+      if val is None:
+        fields_stat[f]['nulls'] += 1
+      fields_stat[f]['uniques'].add(val)
+      if fields_stat[f]['min'] is None or val < fields_stat[f]['min']:
+        fields_stat[f]['min'] = val
+      if fields_stat[f]['max'] is None or val > fields_stat[f]['max']:
+        fields_stat[f]['max'] = val
+
+  for f in fields:
+    fields_stat[f]['gap'] = float(fields_stat[f]['max'] - fields_stat[f]['min'])
+    fields_stat[f]['uniques_cnt'] = len(fields_stat[f]['uniques'])
+    fields_stat[f][
+      'uniques_prct'] = 100.0 * fields_stat[f]['uniques_cnt'] / len(data)
+    fields_stat[f]['nulls_prct'] = 100.0 * fields_stat[f]['nulls'] / len(data)
+    fields_stat[f]['count'] = len(data) - fields_stat[f]['nulls']
+    # highest unique, lowest nulls
+    fields_stat[f]['score'] = (100 - fields_stat[f]['nulls_prct']
+                               ) * fields_stat[f]['uniques_prct'] / 100.0
+    # print('"{}" -> U{} | {}'.format(f, fields_stat[f]['uniques_cnt'], fields_stat[f]['score']))
+
+  best_field = sorted(fields_stat, reverse=True, key=lambda f: fields_stat[f]['score'])[0]
+  best_field_expr = fields_expr[fields_stat[best_field]['ii']]
+  if fields_stat[best_field]['gap'] > 100000:
+    div = fields_stat[best_field]['gap'] / 1000.0
+    best_field_expr = num_conv('{} / {}'.format(best_field_expr, div))
+
+  return best_field_expr
+
 
 
 def get_sql_table_split(src_db, table, partition_col, partitions=10, where_clause='', cov_utf8=True, echo=False):

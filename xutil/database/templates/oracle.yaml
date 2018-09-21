@@ -4,6 +4,7 @@ core:
   create_index: create index {index} on {table} ({cols})
   insert: INSERT {options} INTO {table} ({names}) VALUES ({values})
   insert_option: /*+ APPEND NOLOGGING */
+  sample: SELECT {fields} FROM {table} SAMPLE(50) where rownum <= {n}
   replace: |
     merge into {table} tgt
     USING (SELECT {name_values}
@@ -122,9 +123,11 @@ function:
   truncate_f: trunc({field})
   truncate_datef: trunc({field})
   str_utf8: convert({field},'US7ASCII','WE8ISO8859P1')
+  date_to_int: to_number(to_char({field}, 'j'))
+  number_to_int: round({field}, 0)
 
 native_type_map:
-  number: "integer"
+  number: "decimal"
   varchar: "string"
   varchar2: "string"
   long_string: "string"

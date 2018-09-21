@@ -14,6 +14,7 @@ core:
     update {table} as t1 set {set_fields2}
     from (select * from {temp_table}) as t2
     where {pk_fields_equal2}
+  sample: SELECT {fields} FROM {table} TABLESAMPLE SYSTEM (50) limit {n}
 
 metadata:
   all_tables: |
@@ -194,6 +195,8 @@ analysis:
 function:
   truncate_f: trunc({field})
   truncate_datef: trunc({field})
+  date_to_int: trunc(extract(epoch from {field})/(60*60*24))::int
+  number_to_int: round({field}, 0)
 
 # native to general
 native_type_map:
@@ -267,11 +270,13 @@ native_type_map:
   # 3769:'_regdictionary'
   3802: "string"
   number: "integer"
+  numeric: "decimal"
   text: "string"
   varchar: "string"
   varchar2: "string"
   datetime: "datetime"
   timestamp: "datetime"
+  timestamp with time zone: "datetime"
 
 # general to native
 general_type_map:

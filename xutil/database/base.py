@@ -627,7 +627,8 @@ class DBConn(object):
                   table_name,
                   object_type=None,
                   echo=False,
-                  include_schema_table=True):
+                  include_schema_table=True,
+                  native_type=True):
     "Get column metadata for table"
     if include_schema_table:
       headers = 'schema table id column_name type nullable default autoincrement'
@@ -644,6 +645,14 @@ class DBConn(object):
         r_dict['table'] = table
       r_dict['column_name'] = r_dict['name']
       r_dict['type'] = str(r_dict['type'])
+      if not native_type:
+        r_dict['type']= r_dict['type'].lower()
+        r_dict['type'] = r_dict['type'].split('(')[0] if '(' in r_dict[
+          'type'] else r_dict['type']
+        native_type_map = self.template('native_type_map')
+        if not r_dict['type'] in native_type_map:
+          raise Exception('Field type "{}" not in native_type_map for {}'.format(r_dict['type'], self.type))
+        r_dict['type'] = native_type_map[r_dict['type']]
       r_dict['id'] = column_order
 
       for k in list(r_dict):
