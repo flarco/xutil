@@ -5,6 +5,7 @@ core:
   insert: INSERT {options} INTO {table} ({names}) VALUES ({values})
   insert_option: /*+ APPEND NOLOGGING */
   sample: SELECT {fields} FROM {table} SAMPLE(50) where rownum <= {n}
+  limit: SELECT {fields} FROM {table} where rownum <= {n}
   replace: |
     merge into {table} tgt
     USING (SELECT {name_values}
@@ -128,6 +129,7 @@ function:
 
 native_type_map:
   number: "decimal"
+  char: "string"
   varchar: "string"
   varchar2: "string"
   long_string: "string"
@@ -136,6 +138,7 @@ native_type_map:
   datetime: "datetime"
   timestamp: "datetime"
   native_float: "double"
+  long: "text"
   lob: "text"
   clob: "text"
   blob: "text"

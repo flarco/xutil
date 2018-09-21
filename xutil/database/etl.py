@@ -195,7 +195,7 @@ def db_to_db(src_db,
       if ff_only:
         file_path = '{}/{}'.format(out_folder, src_table.lower())
       else:
-        file_path = db_table_to_ff_stream(
+        file_path, tot_cnt = db_table_to_ff_stream(
           src_db=src_db,
           table=src_table,
           partition_col=partition_col,
@@ -210,7 +210,7 @@ def db_to_db(src_db,
       if not ff_only:
         src_sql = src_sql if src_sql else 'select * from ' + src_table
         data_strm = conn.stream(src_sql, rec_name=tgt_table)
-        write_csvs(file_path, data_strm, gzip=True, log=log)
+        tot_cnt = write_csvs(file_path, data_strm, gzip=True, log=log)
         file_path = file_path + '.gz'
 
     ff_to_db(
@@ -228,6 +228,7 @@ def db_to_db(src_db,
       delete_after=delete_after,
       hive_enabled=True,
       hdfs_folder=hdfs_folder,
+      tot_cnt=tot_cnt,
     )
   else:
     # Use JDBC
@@ -386,6 +387,7 @@ def ff_to_db(src_ff, src_deli, tgt_db, tgt_table,
       count_recs=get_kw('count_recs', None, kwargs),
       grant_sql=get_kw('grant_sql', None, kwargs),
       post_sql=get_kw('post_sql', None, kwargs),
+      tot_cnt=get_kw('tot_cnt', None, tot_cnt),
       log=log)
 
   return dict(completed=True)
@@ -445,8 +447,21 @@ def get_partition_col(src_db, table, n=20000, echo=False):
   fields_expr = [date_conv(fields[i])
                 for i in date_fields_i] + [num_conv(fields[i]) for i in number_fields_i]
   fields_sql = ', '.join('{} as {}'.format(fexpr, fields[fields_i[ii]]) for ii, fexpr in enumerate(fields_expr))
-  sql = conn.template('core.sample').format(fields=fields_sql, table=table, n=n)
-  data = conn.select(sql, dtype='tuple', echo=echo)
+  try:
+    sql = conn.template('core.sample').format(fields=fields_sql, table=table, n=n)
+    data = conn.select(sql, dtype='tuple', echo=echo)
+  except Exception as E:
+    err_msg = get_exception_message(raw=True).lower()
+    if 'cannot select' in err_msg:
+      log('-'+err_msg)
+      log('-Retrying without Sampling')
+      sql = conn.template('core.limit').format(
+        fields=fields_sql, table=table, n=n)
+      data = conn.select(sql, dtype='tuple', echo=echo)
+    else:
+      raise E
+
+
   fields = [f.lower() for f in conn._fields]
 
   if len(data) < n-2:
@@ -455,16 +470,17 @@ def get_partition_col(src_db, table, n=20000, echo=False):
   for row in data:
     for fi, val in enumerate(row):
       f = fields[fi]
+      fields_stat[f]['uniques'].add(val)
       if val is None:
         fields_stat[f]['nulls'] += 1
-      fields_stat[f]['uniques'].add(val)
-      if fields_stat[f]['min'] is None or val < fields_stat[f]['min']:
-        fields_stat[f]['min'] = val
-      if fields_stat[f]['max'] is None or val > fields_stat[f]['max']:
-        fields_stat[f]['max'] = val
+      else:
+        if fields_stat[f]['min'] is None or val < fields_stat[f]['min']:
+          fields_stat[f]['min'] = val
+        if fields_stat[f]['max'] is None or val > fields_stat[f]['max']:
+          fields_stat[f]['max'] = val
 
   for f in fields:
-    fields_stat[f]['gap'] = float(fields_stat[f]['max'] - fields_stat[f]['min'])
+    fields_stat[f]['gap'] = float(fields_stat[f]['max'] - fields_stat[f]['min']) if fields_stat[f]['max'] and fields_stat[f]['min'] else 0
     fields_stat[f]['uniques_cnt'] = len(fields_stat[f]['uniques'])
     fields_stat[f][
       'uniques_prct'] = 100.0 * fields_stat[f]['uniques_cnt'] / len(data)
@@ -483,10 +499,8 @@ def get_partition_col(src_db, table, n=20000, echo=False):
 
   best_field = sorted(fields_stat, reverse=True, key=lambda f: fields_stat[f]['score'])[0]
   best_field_expr = fields_expr[fields_stat[best_field]['ii']]
-  if fields_stat[best_field]['gap'] > 100000:
-    div = fields_stat[best_field]['gap'] / 1000.0
-    best_field_expr = num_conv('{} / {}'.format(best_field_expr, div))
 
+  log('+Using partition col: '+best_field_expr)
   return best_field_expr
 
 
@@ -523,6 +537,8 @@ def get_sql_table_split(src_db, table, partition_col, partitions=10, where_claus
     curr_group.append(row.trunc_field)
     curr_group_size += row.cnt
     if curr_group_size > part_size:
+      if curr_group_size > part_size * 2:
+        log('-WARNING: Skewed data partition. curr_group_size({}) >  part_size * 2'.format(curr_group_size))
       groups.append(curr_group)
       curr_group = []
       curr_group_size = 0
@@ -708,9 +724,9 @@ def db_table_to_ff_stream(src_db,
 
   if wrote_cnt != total_cnt:
     log(
-      'WARNING: written count ({}) is different from initial total cnt ({}).'.
+      '-WARNING: written count ({}) is different from initial total cnt ({}).'.
       format(wrote_cnt, total_cnt))
-    log('WARNING: total_cnt - wrote_cnt = {}'.format(total_cnt - wrote_cnt))
+    log('-WARNING: total_cnt - wrote_cnt = {}'.format(total_cnt - wrote_cnt))
 
   return table_folder
 

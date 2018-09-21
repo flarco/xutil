@@ -553,7 +553,7 @@ class Spark:
       secs = (now() - s_t).total_seconds()
       mins = round(secs / 60, 1)
       rate = round(file_size / 1024**2 / secs, 1)
-      log("Moved data into HDFS in {} mins [{} MB/s]".format(mins, rate))
+      log("Moved data into HDFS in {} mins [{}MB -> {} MB/s]".format(mins, file_size, rate))
     return hdfs_file_path
 
   def read_json(self,
@@ -975,6 +975,7 @@ class Spark:
                  convert_dec=True,
                  max_partitions=200,
                  show_count=True,
+                 tot_cnt=None,
                  order_by=[],
                  log=log):
     "Write to Hive"
@@ -1006,6 +1007,9 @@ class Spark:
     if show_count:
       df.registerTempTable("df")
       counter = self.spark.sql('select count(1) cnt from df').head(1)[0][0]
+      if tot_cnt and tot_cnt != counter:
+        log('-WARNING: table vs. file count differ! {} != {}'.format(
+          counter, tot_cnt))
       rate = round(counter / secs, 1)
       log("Inserted {} records into table '{}' in {} mins [{} r/s].".format(
         counter, table, mins, rate))
