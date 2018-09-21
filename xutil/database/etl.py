@@ -427,7 +427,7 @@ def ff_to_ff(src_ff, src_deli,
   return dict(completed=True)
 
 
-def get_partition_col(src_db, table, n=20000):
+def get_partition_col(src_db, table, n=20000, echo=False):
   """Automatically detect a suitable partition column with n sample records"""
   conn = get_conn(src_db)
   field_rows = conn.get_columns(table, native_type=False)
@@ -446,7 +446,7 @@ def get_partition_col(src_db, table, n=20000):
                 for i in date_fields_i] + [num_conv(fields[i]) for i in number_fields_i]
   fields_sql = ', '.join('{} as {}'.format(fexpr, fields[fields_i[ii]]) for ii, fexpr in enumerate(fields_expr))
   sql = conn.template('core.sample').format(fields=fields_sql, table=table, n=n)
-  data = conn.select(sql, dtype='tuple')
+  data = conn.select(sql, dtype='tuple', echo=echo)
   fields = [f.lower() for f in conn._fields]
 
   if len(data) < n-2:
@@ -473,7 +473,13 @@ def get_partition_col(src_db, table, n=20000):
     # highest unique, lowest nulls
     fields_stat[f]['score'] = (100 - fields_stat[f]['nulls_prct']
                                ) * fields_stat[f]['uniques_prct'] / 100.0
-    # print('"{}" -> U{} | {}'.format(f, fields_stat[f]['uniques_cnt'], fields_stat[f]['score']))
+    fields_stat[f][
+      'score'] = 0 if fields_stat[f]['gap'] > 1000000 else fields_stat[f][
+        'score']
+    if echo:
+      print('"{}" -> U{} | G{} | S{}'.format(f, fields_stat[f]['uniques_cnt'],
+                                             fields_stat[f]['gap'],
+                                             fields_stat[f]['score']))
 
   best_field = sorted(fields_stat, reverse=True, key=lambda f: fields_stat[f]['score'])[0]
   best_field_expr = fields_expr[fields_stat[best_field]['ii']]
