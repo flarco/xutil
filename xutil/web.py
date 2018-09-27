@@ -202,6 +202,87 @@ def send_email_exchange(to_address,
   log('Sent Email "{}" succesfully!'.format(subject))
 
 
+def get_imap_messages(mailbox='inbox',
+                      recent_limit=100,
+                      subject_filter=None,
+                      body_filter=None,
+                      unread_only=False,
+                      from_filter=None,
+                      to_filter=None,
+                      search_items=['ALL']):
+  """
+  search_items:
+    ['BODY', '"HELLO"']
+    ['FROM', '"HELLO"']
+    ['SUBJECT', '"HELLO"']
+    ['UNSEEN']
+    See https://tools.ietf.org/html/rfc3501#section-6.4.4
+  """
+  import email, imaplib
+  USERNAME = os.getenv('IMAP_USERNAME')
+  PASSWD = os.getenv('IMAP_PASSWD')
+  SMTP_SERVER = os.getenv('IMAP_SMTP_SERVER')
+  SMTP_PORT = 993
+
+  if not USERNAME:
+    raise Exception('Environement Var "IMAP_USERNAME" is not set!')
+  if not PASSWD:
+    raise Exception('Environement Var "IMAP_PASSWD" is not set!')
+  if not SMTP_SERVER:
+    raise Exception('Environement Var "IMAP_SMTP_SERVER" is not set!')
+
+  if subject_filter:
+    search_items += ['SUBJECT', '"{}"'.format(subject_filter)]
+
+  if body_filter:
+    search_items += ['BODY', '"{}"'.format(body_filter)]
+
+  if from_filter:
+    search_items += ['FROM', '"{}"'.format(from_filter)]
+
+  if to_filter:
+    search_items += ['TO', '"{}"'.format(to_filter)]
+
+  if unread_only:
+    search_items += ['UNSEEN']
+
+  mail = imaplib.IMAP4_SSL(SMTP_SERVER)
+  mail.login(USERNAME, PASSWD)
+  mail.select(mailbox)
+
+  resp, data = mail.search(None, *search_items)
+  ids = data[0].split()
+  ids = ids[-recent_limit:] if len(ids) > recent_limit else ids
+  messages = []
+
+  for i in ids:
+    resp, data = mail.fetch(i, '(RFC822)')
+
+    message = email.message_from_bytes(data[0][1])
+    body = message.get_payload()
+    body = '{} chars'.format(len(body)) if len(body) > 200 else body
+
+    message_data = {
+      'date': message['Date'],
+      'from': message['From'],
+      'to': message['To'],
+      'subject': message['Subject'],
+      'body': body,
+    }
+    messages.append(message_data)
+
+    # summary = '''
+    # Date: {date}
+    # From: {from}
+    # To: {to}
+    # Subject: {subject}
+    # Body: {body}
+    # '''.format(**message_data)
+    # print(summary)
+
+  return messages
+
+
 ## Web Hooks & API ################
 
 
