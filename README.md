@@ -50,6 +50,20 @@ https://github.com/dask/dask/blob/master/setup.py
 
 https://github.com/tartley/colorama/blob/master/setup.py
 
+# Alias
+
+Installing aliases and adding it to your `.bash_profile`
+
+```
+xutil-alias
+```
+
+# Dev
+
+```
+pip install -e /path/to/xutil
+```
+
 # Todo
 
 - Use Spark JDBC? For what?

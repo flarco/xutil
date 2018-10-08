@@ -1,5 +1,5 @@
 # ETL Library
-import sys, os, requests, time, json, datetime, getpass
+import sys, os, requests, time, json, datetime, getpass, argparse
 
 import copy
 
@@ -7,7 +7,7 @@ from multiprocessing import Queue, Process
 
 from xutil.helpers import (
   load_profile,
-  log, elog,
+  log, log,
   now,
   now_str,
   split,
@@ -50,7 +50,6 @@ def exec_sql(
         output_name=None,
         email=None,
         output_dir=None,
-        SPARK_VERSION=2.1,
         query_name=None,
         echo=True,
         **kwargs
@@ -103,9 +102,6 @@ def exec_sql(
       database.upper(),
       use_spark=True,
       echo=True,
-      master='local[200]',
-      spark_version=SPARK_VERSION,
-      spark_restart=True,
     )
   elif not os.getenv('PROFILE_YAML'):
     log("Environment variable 'PROFILE_YAML' not found!")
@@ -729,6 +725,254 @@ def db_table_to_ff_stream(src_db,
     log('-WARNING: total_cnt - wrote_cnt = {}'.format(total_cnt - wrote_cnt))
 
   return table_folder
+
+
+
+
+etl_usage = '''
+exec_etl.py <command> [<args>]
+ 
+ETL commands available:
+db-db     Database to Database transfer
+ff-db     Flat-File to Database transfer
+db-ff     Database to Flat-File transfer
+ 
+Examples:
+python exec_etl.py db-db --src_db=DB1 --src_table=schema_name1.table_name --tgt_db=HIVE --tgt_table=schema_name2.table_name
+python exec_etl.py db-ff --src_db=DB1 --src_table=schema_name1.table_name --tgt_ff=/path/of/file.csv
+python exec_etl.py ff-db --src_ff=/path/of/file.csv --tgt_db=HIVE --tgt_table=schema_name2.table_name
+'''
+
+
+
+class SqlCmdParser(object):
+  def __init__(self):
+
+    parser = argparse.ArgumentParser(description='Execute SQL from file or command line argument. Optional Output to Flat file.')
+    parser.add_argument('--sql', help='SQL snippet to execute. Use double quote(").')
+    parser.add_argument('--file_path', help='The source SQL file. Example: /path/to/file.sql')
+    parser.add_argument('--template_values', help='A key / value list to fill a SQL template, separated by "&" and "=". i.e.: owner=SCHEMA_NM&tables=INVOICES,VENDORS')
+    parser.add_argument('--database', help='The database name to query (i.e: EDW_1, SPARK).')
+    parser.add_argument('--user', help='The username to use to access database. Password will be prompted.')
+    parser.add_argument('--limit', help='The max number of records to pull.')
+    parser.add_argument('--delim', help='The delimiter to use for output flat files. Default is ",".')
+    parser.add_argument(
+      '--output_dir',
+      help='The output directory for the flat files. Default is "/tmp".')
+    parser.add_argument('--output_name', help='The file name to use. i.e.: "Invoices_flat_wide.csv".')
+    parser.add_argument('--email', help='The email to send the output to. i.e.: "tom@mydomain.com".')
+
+    args = parser.parse_args()
+
+    if not (args.database and (args.sql or args.file_path)):
+      log("Need to specify database and (sql or filepath).", color='red')
+      log("""Example: python /data/public/ds/scripts/exec-sql.py --sql='show databases;' --database=SPARK --output_name='Hive_databases.txt'""", color='green')
+      parser.print_help()
+      sys.exit(1)
+
+    if args.database.upper() != 'SPARK' and not args.user and not os.getenv('PROFILE_YAML'):
+      log("Need to specify user name with flag --user", color='red')
+      log("Exiting.", color='red')
+      sys.exit(1)
+
+    exec_sql(
+      database = args.database,
+      file_path = args.file_path,
+      sql = args.sql,
+      template_values = args.template_values,
+      username = args.user,
+      limit = int(args.limit) if args.limit else None,
+      delim = args.delim if args.delim else ',',
+      output_name = args.output_name,
+      email = args.email,
+      output_dir = args.output_dir if args.output_dir else "/tmp",
+    )
+
+
+class EtlCmdParser(object):
+  def __init__(self):
+    parser = argparse.ArgumentParser(
+      description='Execute ETL operations though CLI.', usage=etl_usage)
+    parser.add_argument('command', help='ETL Subcommand to run')
+
+    # parse_args defaults to [1:] for args, but you need to
+    # exclude the rest of the args too, or validation will fail
+    args = parser.parse_args(sys.argv[1:2])
+    command = args.command.replace('-', '_')
+
+    if not hasattr(self, command):
+      print('Unrecognized command!')
+      parser.print_help()
+      exit(1)
+
+    if not os.getenv('PROFILE_YAML'):
+      log("Env Variable PROFILE_YAML must be set.")
+      log(
+        "PROFILE_YAML should be the path of the file containing database profiles / credentials."
+      )
+      log("Exiting.")
+      sys.exit(1)
+
+    # use dispatch pattern to invoke method with same name
+    getattr(self, command)()
+
+  def db_db(self):
+    "Database to Database"
+    parser = argparse.ArgumentParser(
+      description='Database to Database transfer')
+
+    # prefixing the argument with -- means it's optional
+    parser.add_argument('--src_db', help='The source database name.')
+    parser.add_argument(
+      '--src_table', help='The source table name (including the schema).')
+    parser.add_argument(
+      '--src_sql',
+      help=
+      'The SQL snippet to execute from the source database. Use double quote(").'
+    )
+    parser.add_argument(
+      '--src_sql_file',
+      help=
+      'The source SQL file to execute from the source database. Example: /path/to/file.sql'
+    )
+    parser.add_argument('--tgt_db', help='The target database name.')
+    parser.add_argument(
+      '--tgt_table', help='The target table name (including the schema).')
+    parser.add_argument(
+      '--append',
+      help=
+      'Append to the target table. Default will drop and overwrite the target table.'
+    )
+
+    # now that we're inside a subcommand, ignore the first
+    args = parser.parse_args(sys.argv[2:])
+
+    if not (args.src_db and
+            (args.src_sql or args.src_sql_file or args.src_table)
+            and args.tgt_db and args.tgt_table):
+      log(
+        "Need to specify src_db and (sql or filepath or src_table) and tgt_db and tgt_table."
+      )
+      parser.print_help()
+      sys.exit(1)
+
+    if args.src_sql_file:
+      src_sql = read_file(args.src_sql_file)
+
+    etl_db_to_db(
+      src_db=args.src_db,
+      src_table=args.src_table,
+      src_sql=src_sql,
+      tgt_db=args.tgt_db,
+      tgt_table=args.tgt_table,
+      tgt_mode='append' if args.tgt_mode else 'overwrite',
+    )
+
+  def ff_db(self):
+    "Flat File to Database"
+    parser = argparse.ArgumentParser(
+      description='Flat File to Database transfer')
+
+    # prefixing the argument with -- means it's optional
+    parser.add_argument('--src_ff', help='The source file path.')
+    parser.add_argument(
+      '--delim',
+      help='The delimiter to use to parse the file. Default is ",".')
+    parser.add_argument(
+      '--datetime_format',
+      help=
+      'Datetime Format throughout the file. Default is "yyyy-MM-dd HH:mm:ss".')
+    parser.add_argument(
+      '--datetime_fields',
+      help=
+      'Datetime fields that should be parsed with specified datetime-format. ie: "date_field_1,date_field_2"'
+    )
+    parser.add_argument('--tgt_db', help='The target database name.')
+    parser.add_argument(
+      '--tgt_table', help='The target table name (including the schema).')
+    parser.add_argument(
+      '--tgt_mode', help='The target table insert mode (overwrite or append).')
+    parser.add_argument(
+      '--hdfs_folder',
+      help=
+      'The temporary HDFS field that the field should be stored in. Default is "/tmp"'
+    )
+    parser.add_argument(
+      '--append',
+      help='Append to existing table. Default is "overwrite".',
+      action='store_true')
+
+    # now that we're inside a subcommand, ignore the first
+    args = parser.parse_args(sys.argv[2:])
+
+    if not (args.src_ff and args.tgt_db and args.tgt_table):
+      log("Need to specify src_ff and tgt_db and tgt_table.")
+      parser.print_help()
+      sys.exit(1)
+
+    etl_ff_to_db(
+      src_ff=args.src_ff,
+      src_deli=args.delim if args.delim else ',',
+      src_timestamp_fmt=args.datetime_format if args.datetime_format else None,
+      src_date_cols=args.datetime_fields.split(',')
+      if args.datetime_fields else [],
+      tgt_db=args.tgt_db,
+      tgt_table=args.tgt_table,
+      tgt_mode='append' if args.tgt_mode else 'overwrite',
+      hdfs_folder=args.hdfs_folder if args.hdfs_folder else '/tmp',
+    )
+
+  def db_ff(self):
+    "Database to Flat File"
+    parser = argparse.ArgumentParser(description='Database to Flat File')
+
+    # prefixing the argument with -- means it's optional
+    parser.add_argument('--src_db', help='The source database name.')
+    parser.add_argument(
+      '--src_table', help='The source table name (including the schema).')
+    parser.add_argument(
+      '--src_sql',
+      help=
+      'The SQL snippet to execute from the source database. Use double quote(").'
+    )
+    parser.add_argument(
+      '--src_sql_file',
+      help=
+      'The source SQL file to execute from the source database. Example: /path/to/file.sql'
+    )
+    parser.add_argument('--tgt_ff', help='The target file path.')
+    parser.add_argument(
+      '--delim',
+      help='The delimiter to use to parse the file. Default is ",".')
+    parser.add_argument(
+      '--datetime_format',
+      help=
+      'Datetime Format throughout the file. Default is "yyyy-MM-dd HH:mm:ss".')
+
+    # now that we're inside a subcommand, ignore the first
+    args = parser.parse_args(sys.argv[2:])
+
+    if not (args.src_db and
+            (args.src_sql or args.src_sql_file or args.src_table)
+            and args.tgt_ff):
+      log(
+        "Need to specify src_db and (sql or filepath or src_table) and tgt_ff."
+      )
+      parser.print_help()
+      sys.exit(1)
+
+    if args.src_sql_file:
+      src_sql = read_file(args.src_sql_file)
+
+    etl_db_to_ff(
+      src_db=args.src_db,
+      src_table=args.src_table if args.src_table else None,
+      src_sql=args.src_sql if args.src_sql else None,
+      tgt_ff=args.tgt_ff,
+      tgt_deli=args.delim if args.delim else ',',
+      tgt_date_fmt=args.datetime_format if args.datetime_format else None,
+      tgt_timestamp_fmt=args.datetime_format if args.datetime_format else None,
+    )
 
 
 def clean_file_1(file_path, log=log):

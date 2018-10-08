@@ -30,6 +30,7 @@ setup(
     "sqlalchemy",
     "halo",
     "prettytable",
+    "scrapy",
 
     # web
     "python-socketio",
@@ -40,8 +41,12 @@ setup(
     # "thrift_sasl",
   ],
   entry_points={
-    'console_scripts':
-    ['pykill=xutil.cli:pykill', 'exec-sql=xutil.cli:exec_sql'],
+    'console_scripts': [
+      'pykill=xutil.cli:pykill',
+      'exec-sql=xutil.cli:exec_sql',
+      'exec-etl=xutil.cli:exec_etl',
+      'xutil-alias=xutil.cli:alias_cli',
+    ],
   },
   classifiers=[
     'Programming Language :: Python :: 2',

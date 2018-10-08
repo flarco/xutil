@@ -12,6 +12,8 @@ import os, socket, json
 from xutil.helpers import (slog, elog, log, get_kw)
 from xutil.parallelism import Pipe, Worker
 from flask import Flask
+from scrapy.selector import Selector
+from scrapy.http import HtmlResponse
 
 
 def generate_rmd_html(rmd_file,

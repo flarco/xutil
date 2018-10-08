@@ -845,12 +845,9 @@ class DBConn(object):
 
 def get_conn(db,
              dbs=None,
-             use_beeline=False,
-             use_spark=False,
              echo=True,
              reconnect=False,
              use_jdbc=False,
-             globs=globals(),
              conn_expire_min=10,
              spark_hive=True) -> DBConn:
   global conns
@@ -883,7 +880,7 @@ def get_conn(db,
 
   elif db_dict.type.lower() == 'hive':
     from .hive import HiveConn, Beeline
-    if use_beeline:
+    if 'use_beeline' in db_dict and db_dict.use_beeline:
       conn = Beeline(db_dict, echo=echo)
     else:
       conn = HiveConn(db_dict, echo=echo)
