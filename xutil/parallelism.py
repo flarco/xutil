@@ -97,6 +97,7 @@ class Worker:
                args=[],
                kwargs={},
                start=False,
+               kill_if_running=False,
                pid_folder=None):
     self.hostname = socket.gethostname()
     self.name = name
@@ -109,6 +110,7 @@ class Worker:
     self.log = log
     self.args = args
     self.kwargs = kwargs
+    self.kill_if_running = kill_if_running
     self.started = False
     pid_folder = pid_folder if pid_folder else get_home_path()
     self.pid_file = get_pid_path(name, pid_folder)
@@ -130,18 +132,18 @@ class Worker:
 
   def start(self):
     # kill existing PID
-    # cleanup_pid(self.pid_file)
+    cleanup_pid(self.pid_file, kill_if_running=self.kill_if_running)
 
     self.process.start()
     self.started = now()
     self.pid = self.process.pid
-    register_pid(self.pid_file, self.pid)
+    register_pid(self.pid_file, self.pid, clean_atexit=True)
 
   def stop(self):
     self.process.terminate()
 
     # delete pid file
-    cleanup_pid(self.pid_file, halt_if_running=False)
+    cleanup_pid(self.pid_file, kill_if_running=True)
 
   def put_parent_q(self, obj):
     self.parent_q.put(obj)

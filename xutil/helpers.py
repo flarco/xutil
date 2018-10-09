@@ -220,35 +220,44 @@ except:
   slog = lambda text, show_time=True: log(text, color='green', show_time=show_time)
 
 
-def kill_pid(pid):
+def kill_pid(pid, signum=signal.SIGTERM):
   if os.getpid() == pid:
+    # log('-Cannot Kill own PID ({})'.format(pid))
     return
   try:
-    os.kill(pid, signal.SIGTERM)
+    os.kill(pid, signum)
   except ProcessLookupError:
     pass
 
 
-def register_pid(pid_file, pid=None, halt_if_running=True, clean_atexit=True):
+def register_pid(pid_file,
+                 pid=None,
+                 kill_if_running=False,
+                 clean_atexit=True,
+                 exit_queue=None):
   "Register PID and verify already running state"
   from .diskio import write_file
   pid = pid if pid else os.getpid()
-  cleanup_pid(pid_file, halt_if_running)
+  cleanup_pid(pid_file, kill_if_running)
   write_file(pid_file, str(pid))
+  signal_exit = lambda signum, frame: exit_queue.put(True)
   if clean_atexit:
-    atexit.register(cleanup_pid, pid_file, halt_if_running=False)
+    if exit_queue:
+      # signal.signal(signal.SIGINT, clean_up_func)
+      signal.signal(signal.SIGTERM, signal_exit)
+    atexit.register(cleanup_pid, pid_file, kill_if_running=True)
 
 
-def cleanup_pid(pid_file, halt_if_running=True):
+def cleanup_pid(pid_file, kill_if_running=False, exit_queue=None):
   "Cleans up old PID file located in home folder"
   from .diskio import read_file
   import psutil
 
   if os.path.exists(pid_file):
     old_pid = int(read_file(pid_file).rstrip())
-    if halt_if_running and psutil.pid_exists(old_pid):
+    if not kill_if_running and psutil.pid_exists(old_pid):
       raise Exception('PID {} still running! -> {}'.format(old_pid, pid_file))
-    kill_pid(old_pid)
+    kill_pid(old_pid, 9)
     os.remove(pid_file)
     # log('Cleaned Up Old PID {}'.format(old_pid))
 
