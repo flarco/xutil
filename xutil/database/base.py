@@ -423,7 +423,7 @@ class DBConn(object):
              sql,
              rec_name='Record',
              dtype='namedtuple',
-             yield_batch=False,
+             yield_chuncks=False,
              limit=None,
              echo=True):
     "Stream Select from SQL, yield records as they come in"
@@ -443,10 +443,15 @@ class DBConn(object):
 
     if dtype == 'tuple':
       make_rec = lambda row: row
+      make_batch = lambda rows: [make_rec(r) for r in rows]
+    elif dtype == 'dataframe':
+      yield_chuncks=True
+      make_batch = lambda rows: pandas.DataFrame(rows, columns=self._fields)
     else:
       Record = namedtuple(
         rec_name.replace(' ', '_').replace('.', '_'), self._fields)
       make_rec = lambda row: Record(*row)
+      make_batch = lambda rows: [make_rec(r) for r in rows]
 
     self._stream_counter = 0
 
@@ -455,8 +460,8 @@ class DBConn(object):
         break
       rows = self.cursor.fetchmany(fetch_size)
       if rows:
-        if yield_batch:
-          batch = [make_rec(r) for r in rows]
+        if yield_chuncks:
+          batch = make_batch(rows)
           self._stream_counter += len(batch)
           yield batch
         else:

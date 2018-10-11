@@ -1,4 +1,4 @@
-import datetime, csv, time
+import datetime, csv, time, pandas
 from xutil.database.base import DBConn
 from xutil.helpers import (get_exception_message, now, log, struct,
                            is_gen_func, isnamedtupleinstance, get_dir_path)
@@ -177,7 +177,7 @@ class PostgreSQLConn(DBConn):
              sql,
              rec_name='Record',
              dtype='namedtuple',
-             yield_batch=False,
+             yield_chuncks=False,
              limit=None,
              echo=True):
     "Stream Select from SQL, yield records as they come in"
@@ -216,9 +216,18 @@ class PostgreSQLConn(DBConn):
 
         if dtype == 'tuple':
           make_rec = lambda row: list(row)
+          make_batch = lambda rows: [make_rec(r) for r in rows]
+        elif dtype == 'dataframe':
+          yield_chuncks = True
+          make_rec = lambda row: list(row)
+          make_batch = lambda rows: pandas.DataFrame([list(r) for r in rows], columns=self._fields)
+          # fetch_size = 100000 if len(self._fields) < 100 else fetch_size
         else:
           # since we're using NamedTupleCursor
           make_rec = lambda row: row
+          make_batch = lambda rows: [make_rec(r) for r in rows]
+
+        rows = rows + cursor.fetchmany(fetch_size)
       else:
         rows = cursor.fetchmany(fetch_size)
 
@@ -226,8 +235,8 @@ class PostgreSQLConn(DBConn):
         break
 
       if rows:
-        if yield_batch:
-          batch = [make_rec(r) for r in rows]
+        if yield_chuncks:
+          batch = make_batch(rows)
           self._stream_counter += len(batch)
           yield batch
         else:

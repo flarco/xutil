@@ -4,6 +4,9 @@ import os
 import re
 from collections import namedtuple
 from zipimport import zipimporter
+import psutil, shutil
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 import yaml
 
@@ -12,7 +15,7 @@ from yaml import (
   SafeLoader,
 )
 
-from xutil.helpers import log
+from xutil.helpers import log, now
 
 try:
   from StringIO import StringIO, BytesIO
@@ -97,7 +100,7 @@ def read_csv(file_path,
              mode='r',
              encoding="utf8"):
   """Read CSV from File"""
-  s_t = datetime.datetime.now()
+  s_t = now()
 
   with open(file_path, mode, encoding=encoding) as f:
     reader = csv.reader(f, delimiter=delimiter, quotechar=quotechar)
@@ -110,7 +113,7 @@ def read_csv(file_path,
       print('ERROR at line ' + str(i + 1))
       raise e
 
-  secs = (datetime.datetime.now() - s_t).total_seconds()
+  secs = (now() - s_t).total_seconds()
   rate = round(len(data_rows) / secs, 1)
   log("Imported {} rows from {} [{} r/s].".format(
     len(data_rows), file_path, rate))
@@ -129,7 +132,7 @@ def read_csvD(file_path,
   "Use Pandas DataFrame"
   # http://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html
   import pandas
-  s_t = datetime.datetime.now()
+  s_t = now()
 
   # https://stackoverflow.com/questions/17465045/can-pandas-automatically-recognize-dates
   def date_parser(x):
@@ -163,7 +166,7 @@ def read_csvD(file_path,
   replace_func = lambda col: re.sub(r'_+', '_', re.sub(r'[\]\[. ]', '_', col))
   df = df.rename(columns={col: replace_func(col) for col in df.columns})
 
-  secs = (datetime.datetime.now() - s_t).total_seconds()
+  secs = (now() - s_t).total_seconds()
   rate = round(len(df) / secs, 1)
   if echo:
     log("Imported {} rows from {} [{} r/s].".format(len(df), file_path, rate))
@@ -198,7 +201,7 @@ def write_csv(file_path,
               file_obj=None,
               encoding="utf8"):
   "Write to CSV, python3 compatible. 'data' must be list of iterables"
-  s_t = datetime.datetime.now()
+  s_t = now()
   mode = 'a' if append else 'w'
   f = file_obj if file_obj else open(
     file_path, mode, newline='', encoding=encoding)
@@ -213,7 +216,7 @@ def write_csv(file_path,
 
   if not file_obj: f.close()
 
-  secs = (datetime.datetime.now() - s_t).total_seconds()
+  secs = (now() - s_t).total_seconds()
   rate = round(len(data) / secs, 1)
   if echo:
     log("Wrote {} rows to {} [{} r/s].".format(len(data), file_path, rate))
@@ -230,8 +233,8 @@ def write_csvs(file_path,
                to_str=False,
                encoding="utf8"):
   "Write to CSV, python3 compatible. 'data' must be list of interables"
-  s_t = datetime.datetime.now()
-  l_t = datetime.datetime.now()
+  s_t = now()
+  l_t = now()
   log_dlt = 100
   counter2 = 0
   f1 = open(file_path, 'w', newline='', encoding=encoding)
@@ -258,14 +261,14 @@ def write_csvs(file_path,
 
     # progress message
     if counter2 % log_dlt == 0:
-      secs_l = (datetime.datetime.now() - l_t).total_seconds()
+      secs_l = (now() - l_t).total_seconds()
       if secs_l >= secs_d:
-        secs = (datetime.datetime.now() - s_t).total_seconds()
+        secs = (now() - s_t).total_seconds()
         rate = round(counter2 / secs_l, 1)
         mins = round(secs / 60, 1)
         log("{} min ## Writing to {}: {} rows @ {} r/s.".format(
           mins, file_name, counter, rate))
-        l_t = datetime.datetime.now()
+        l_t = now()
         counter2 = 0
 
   f1.close()
@@ -275,7 +278,88 @@ def write_csvs(file_path,
     os.system('gzip -f ' + file_path)
     file_path = file_path + '.gz'
 
-  secs = (datetime.datetime.now() - s_t).total_seconds()
+  secs = (now() - s_t).total_seconds()
+  rate = round(counter / secs, 1)
+  log("Wrote: {} rows to {} [{} r/s].".format(counter, file_path, rate))
+  return counter
+
+
+def write_pq(
+    file_path,
+    dataf,
+    partition_cols=None,
+    flavor='spark',
+    filesystem=None,
+    append=False,
+    log=log,
+):
+  "Write to Parquet, python3 compatible. 'data' must be list of interables"
+  s_t = now()
+
+  if not append and os.path.exists(file_path):
+    shutil.rmtree(file_path, ignore_errors=True)
+
+  table = pa.Table.from_pandas(dataf, nthreads=psutil.cpu_count())
+  counter = table.num_rows
+  pq.write_to_dataset(
+    table,
+    root_path=file_path,
+    partition_cols=partition_cols,
+    flavor=flavor,
+    preserve_index=False,
+    filesystem=filesystem)  # will append. delete folder for overwrite
+
+  secs = (now() - s_t).total_seconds()
+  rate = round(counter / secs, 1)
+  log("Wrote: {} rows to {} [{} r/s].".format(counter, file_path, rate))
+  return counter
+
+
+def write_pqs(
+    file_path,
+    dataf_chunks,
+    partition_cols=None,
+    flavor='spark',
+    append=False,
+    filesystem=None,
+    log=log,
+    secs_d=10,
+):
+  "Stream-Write to Parquet, python3 compatible. 'dataf_chunks' must be list of dataframes"
+  s_t = now()
+  l_t = now()
+  log_dlt = 100
+  counter = 0
+  counter2 = 0
+
+  if not append and os.path.exists(file_path):
+    shutil.rmtree(file_path, ignore_errors=True)
+
+  file_name = file_path.split('/')[-1]
+  for dataf in dataf_chunks:
+    table = pa.Table.from_pandas(dataf, nthreads=psutil.cpu_count())
+    counter += table.num_rows
+    counter2 += table.num_rows
+    pq.write_to_dataset(
+      table,
+      root_path=file_path,
+      partition_cols=partition_cols,
+      flavor=flavor,
+      preserve_index=False,
+      filesystem=filesystem,
+    )  # will append. delete folder for overwrite
+
+    secs_l = (now() - l_t).total_seconds()
+    if secs_l >= secs_d:
+      secs = (now() - s_t).total_seconds()
+      rate = round(counter2 / secs_l, 1)
+      mins = round(secs / 60, 1)
+      log("{} min ## Writing to {}: {} rows @ {} r/s.".format(
+        mins, file_name, counter, rate))
+      l_t = now()
+      counter2 = 0
+
+  secs = (now() - s_t).total_seconds()
   rate = round(counter / secs, 1)
   log("Wrote: {} rows to {} [{} r/s].".format(counter, file_path, rate))
   return counter
@@ -311,14 +395,14 @@ def get_hdfs():
 def write_jsonl(file_path, data, log=log, encoding="utf8"):
   "Write JSONL to File"
   import jsonlines
-  s_t = datetime.datetime.now()
+  s_t = now()
 
   with open(file_path, 'w', encoding=encoding) as f:
     writer = jsonlines.Writer(f)
     writer.write_all(data)
 
   counter = len(data)
-  secs = (datetime.datetime.now() - s_t).total_seconds()
+  secs = (now() - s_t).total_seconds()
   rate = round(counter / secs, 1)
   log("Wrote {} rows to {} [{} r/s].".format(counter, file_path, rate))
 
@@ -326,8 +410,8 @@ def write_jsonl(file_path, data, log=log, encoding="utf8"):
 def write_jsonls(file_path, data, log=log):
   "Sream Write to JSON Lines. 'data' must be namedtuple. schema is a dict of field to data-type"
   import jsonlines
-  s_t = datetime.datetime.now()
-  l_t = datetime.datetime.now()
+  s_t = now()
+  l_t = now()
   msg_dlt = 10000
   counter = 0
   counter2 = 0
@@ -341,17 +425,17 @@ def write_jsonls(file_path, data, log=log):
 
       # progress message
       if counter2 % msg_dlt == 0:
-        secs_l = (datetime.datetime.now() - l_t).total_seconds()
+        secs_l = (now() - l_t).total_seconds()
         if secs_l >= 20:
-          secs = (datetime.datetime.now() - s_t).total_seconds()
+          secs = (now() - s_t).total_seconds()
           rate = round(counter2 / secs_l, 1)
           mins = round(secs / 60, 1)
           log("{} min ## Writing to JSON: {} rows @ {} r/s.".format(
             mins, counter, rate))
-          l_t = datetime.datetime.now()
+          l_t = now()
           counter2 = 0
 
-  secs = (datetime.datetime.now() - s_t).total_seconds()
+  secs = (now() - s_t).total_seconds()
   rate = round(counter / secs, 1)
   log("Wrote {} rows to {} [{} r/s].".format(counter, file_path, rate))
 
@@ -359,14 +443,14 @@ def write_jsonls(file_path, data, log=log):
 def read_jsonl(file_path, log=log, encoding="utf8"):
   "Read from JSONL File"
   import jsonlines
-  s_t = datetime.datetime.now()
+  s_t = now()
 
   with open(file_path, 'r', encoding=encoding) as f:
     reader = jsonlines.Reader(f)
     data = list(reader.iter())
 
   counter = len(data)
-  secs = (datetime.datetime.now() - s_t).total_seconds()
+  secs = (now() - s_t).total_seconds()
   rate = round(counter / secs, 1)
   log("Read {} rows from {} [{} r/s].".format(counter, file_path, rate))
 

@@ -31,6 +31,8 @@ setup(
     "halo",
     "prettytable",
     "scrapy",
+    "pyarrow",
+    "s3fs",
 
     # web
     "python-socketio",

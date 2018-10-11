@@ -153,6 +153,47 @@ def test_db_to_hive():
   # print(data)
 
 
+def text_db_to_ff():
+
+  ######## PG to Parquet
+  from xutil import get_conn
+  from xutil.diskio import write_pq, write_pqs
+  from s3fs import S3FileSystem
+  s3 = S3FileSystem()
+
+  conn = get_conn('PG_XENIAL')
+  df_chunks = conn.stream(
+    'select * from housing.orange_county_data',
+    dtype='dataframe',
+  )
+  write_pqs(
+    '/tmp/housing.orange_county_data',
+    df_chunks,
+    # partition_cols=['property_zip'],
+  )
+
+  write_pqs(
+    '/tmp/crypto.bittrex_prices',
+    conn.stream(
+      'select * from crypto.bittrex_prices',
+      dtype='dataframe',
+    ))
+
+  write_pqs(
+    's3://ocral-data-1/housing.landwatch',
+    conn.stream(
+      'select * from housing.landwatch',
+      dtype='dataframe',
+    ),
+    filesystem=s3)
+
+  write_pqs('/tmp/mining.places',
+            conn.stream(
+              'select * from mining.places',
+              dtype='dataframe',
+            ))
+
+
 def test_hive_to_db():
   pass
 
