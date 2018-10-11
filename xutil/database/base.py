@@ -443,7 +443,7 @@ class DBConn(object):
 
     if dtype == 'tuple':
       make_rec = lambda row: row
-      make_batch = lambda rows: [make_rec(r) for r in rows]
+      make_batch = lambda rows: rows
     elif dtype == 'dataframe':
       yield_chuncks=True
       make_batch = lambda rows: pandas.DataFrame(rows, columns=self._fields)
