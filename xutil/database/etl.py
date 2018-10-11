@@ -1,7 +1,7 @@
 # ETL Library
 import sys, os, requests, time, json, datetime, getpass, argparse
 
-import copy
+import copy, shutil
 
 from multiprocessing import Queue, Process
 
@@ -16,7 +16,11 @@ from xutil.helpers import (
   get_kw,
   get_db_profile,
   struct)
-from xutil.diskio import read_yaml, read_file, write_csv, write_csvs, write_jsonl, write_jsonls
+from xutil.diskio import (
+  read_yaml, read_file, write_csv,
+  write_csvs, write_jsonl, write_jsonls,
+  write_pqs
+)
 
 from xutil.web import send_email_exchange
 import xutil.parallelism as parallelism
@@ -501,7 +505,7 @@ def get_partition_col(src_db, table, n=20000, echo=False):
 
 
 
-def get_sql_table_split(src_db, table, partition_col, partitions=10, 
+def get_sql_table_split(src_db, table, partition_col, partitions=10,
   where_clause='', cov_utf8=True, echo=False,):
 
   ######## Split and group the dates
@@ -596,21 +600,40 @@ def db_table_to_ff_stream(src_db,
   max_running = get_kw('max_running', partitions, kwargs)
 
 
-  def sql_to_csv(src_db, sql, csv_path, fields, queue=None, gzip=True):
+  def sql_to_csv(src_db, sql, file_path, fields, queue=None, gzip=True):
     def log2(text, color=None):
       queue.put(('log', text))
 
     log2 = log2 if queue else log
 
     conn = get_conn(src_db, echo=False, reconnect=True)
-    # log("Streaming data to {}...".format(csv_path))
 
     try:
       counter = write_csvs(
-        csv_path,
+        file_path,
         conn.stream(sql, dtype='tuple', echo=False),
         fields=fields,
         gzip=gzip,
+        log=log2)
+
+      queue.put(('wrote-counter', counter))
+
+    except Exception as E:
+      log(E)
+      queue.put(('exception', E))
+
+  def sql_to_pq(src_db, sql, file_path, queue=None):
+    def log2(text, color=None):
+      queue.put(('log', text))
+
+    log2 = log2 if queue else log
+
+    conn = get_conn(src_db, echo=False, reconnect=True)
+
+    try:
+      counter = write_pqs(
+        file_path,
+        conn.stream(sql, dtype='dataframe', yield_chuncks=True, echo=False),
         log=log2)
 
       queue.put(('wrote-counter', counter))
@@ -633,29 +656,37 @@ def db_table_to_ff_stream(src_db,
   table_folder = '{}/{}'.format(out_folder, file_name
                                 if file_name else table.lower())
   os.system('rm -rf {f}; mkdir {f}'.format(f=table_folder))
+  
+  if os.path.exists(table_folder):
+    shutil.rmtree(table_folder, ignore_errors=True)
+  os.mkdir(table_folder)
 
 
   ######## Start the processes
   procs = []
   remaining_procs = []
-  csv_paths = []
+  file_parts = []
 
   proc_items = {}
   for i, sql in enumerate(sqls):
-    csv_path = '{}/{}.{}.csv'.format(table_folder, table.lower(),
+    file_path = '{}/{}.{}'.format(table_folder, table.lower(),
                                      format(i, "03d"))
-    csv_paths.append(csv_path)
+    file_parts.append(file_path)
     queue = Queue()
-    csv_proc = Process(
-      target=sql_to_csv, args=(src_db, sql, csv_path, fields, queue, gzip))
+    if out_type == 'parquet':
+      _proc = Process(
+      target=sql_to_pq, args=(src_db, sql, table_folder, queue))
+    else:
+      _proc = Process(
+      target=sql_to_csv, args=(src_db, sql, file_path + '.csv', fields, queue, gzip))
 
-    proc_items[csv_path] = dict(
-      sql=sql, proc=csv_proc, queue=queue, prog_cnt=0)
+    proc_items[file_path] = dict(
+      sql=sql, proc=_proc, queue=queue, prog_cnt=0)
 
     if len(procs) == max_running:
-      remaining_procs.append(csv_proc)
+      remaining_procs.append(_proc)
     else:
-      procs.append(csv_proc)
+      procs.append(_proc)
       procs[-1].start()
 
   ######## Keep track of streams
@@ -667,24 +698,24 @@ def db_table_to_ff_stream(src_db,
   rate = 10000
   exptn = None
 
-  while len(done) < len(csv_paths):
+  while len(done) < len(file_parts):
     time.sleep(0.1)
     secs = round((datetime.datetime.now() - s_t).total_seconds(), 1)
     running_procs = get_running_procs()
 
-    for csv_path in proc_items:
-      if not proc_items[csv_path]['queue'].empty():
+    for file_path in proc_items:
+      if not proc_items[file_path]['queue'].empty():
         # key can be log, counter, exception
-        key, val = proc_items[csv_path]['queue'].get()
+        key, val = proc_items[file_path]['queue'].get()
         if key == 'wrote-counter':
           wrote_cnt += val
-          done.append(csv_path)
+          done.append(file_path)
         if key == 'exception':
-          log('Process exception for "{}":\n{}'.format(csv_path, val))
+          log('Process exception for "{}":\n{}'.format(file_path, val))
           raise (val)
         if key == 'log':
           if 'rows' in val:
-            proc_items[csv_path]['prog_cnt'] = int(
+            proc_items[file_path]['prog_cnt'] = int(
               val.split(':')[1].split('rows')[0])
 
     secsd = (datetime.datetime.now() - last_dt).total_seconds()
@@ -703,15 +734,15 @@ def db_table_to_ff_stream(src_db,
         rate=rate,
         prct=round(100.0 * prog_cnt / total_cnt, 1),
         done_cnt=len(done),
-        file_cnt=len(csv_paths),
+        file_cnt=len(file_parts),
         running_cnt=len(running_procs),
         eta_mins=eta_mins)
       log(text_log)
 
     if len(running_procs) < max_running and remaining_procs:
-      csv_proc = remaining_procs.pop(0)
-      csv_proc.start()
-      procs.append(csv_proc)
+      _proc = remaining_procs.pop(0)
+      _proc.start()
+      procs.append(_proc)
 
   secs = (datetime.datetime.now() - s_t).total_seconds()
   rate = round(wrote_cnt / secs, 1)
