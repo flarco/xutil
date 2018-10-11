@@ -157,7 +157,7 @@ def text_db_to_ff():
 
   ######## PG to Parquet
   from xutil import get_conn
-  from xutil.diskio import write_pq, write_pqs
+  from xutil.diskio import write_pq, write_pqs, write_csvs
   from s3fs import S3FileSystem
   s3 = S3FileSystem()
 
@@ -178,6 +178,9 @@ def text_db_to_ff():
       'select * from crypto.bittrex_prices',
       dtype='dataframe',
     ))
+
+  write_csvs('/tmp/crypto.bittrex_prices.csv',
+             conn.stream('select * from crypto.bittrex_prices'))
 
   write_pqs(
     's3://ocral-data-1/housing.landwatch',

@@ -5,6 +5,55 @@ from xutil.helpers import (get_exception_message, now, log, struct,
 from xutil.diskio import read_yaml, read_file, write_jsonl, read_jsonl
 from collections import namedtuple
 
+############################################################
+"""Experiment to have two threads to write to parquet files:
+Thread 1 would be the database thread. All it does it collect records and append them into a buffer list.
+Thread 2 would poll that buffer list, once criteria is met (size of list or Thread 1 finished), it will yield the batch dataframe (to be written to parquet) all on the same thread. This way it does not interefere with Thread 1.
+So 3 variables would be shared: the field list, the records buffer list and the finished indicator of thread #1.
+Below code chunck does not work as intended -- need to seperate the database thread completely.
+"""
+from threading import (
+  Thread,
+  Lock,
+)
+
+th_lock = Lock()
+buf_rows = []
+buf_df = []
+making_df = False
+
+
+def make_df(rows, _fields):
+  global buf_df, buf_rows, making_df
+  buf_rows += rows
+
+  if len(buf_rows) > 100000:
+    with th_lock:
+      log('making buf_df')
+      making_df = True
+      buf_df = pandas.DataFrame(buf_rows, columns=_fields)
+      making_df = False
+      buf_rows = []
+
+
+def make_batch_df(rows, _fields):
+  global buf_df, buf_rows, making_df
+  df = []
+
+  if rows and not making_df:
+    th = Thread(name='make_df', target=make_df, args=(rows, _fields))
+    th.start()
+
+  with th_lock:
+    if len(buf_df):
+      df = buf_df
+      buf_df = []
+
+  return df
+
+
+############################################################
+
 
 class PostgreSQLConn(DBConn):
   "PostgreSQL Connection"
@@ -221,7 +270,8 @@ class PostgreSQLConn(DBConn):
           yield_chuncks = True
           make_rec = lambda row: list(row)
           make_batch = lambda rows: pandas.DataFrame([list(r) for r in rows], columns=self._fields)
-          # fetch_size = 100000 if len(self._fields) < 100 else fetch_size
+          # make_batch = lambda rows: make_batch_df(rows, fields)
+
         else:
           # since we're using NamedTupleCursor
           make_rec = lambda row: row
@@ -238,7 +288,8 @@ class PostgreSQLConn(DBConn):
         if yield_chuncks:
           batch = make_batch(rows)
           self._stream_counter += len(batch)
-          yield batch
+          if len(batch):
+            yield batch
         else:
           for row in rows:
             self._stream_counter += 1

@@ -463,7 +463,8 @@ class DBConn(object):
         if yield_chuncks:
           batch = make_batch(rows)
           self._stream_counter += len(batch)
-          yield batch
+          if len(batch):
+            yield batch
         else:
           for row in rows:
             self._stream_counter += 1

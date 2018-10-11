@@ -501,7 +501,8 @@ def get_partition_col(src_db, table, n=20000, echo=False):
 
 
 
-def get_sql_table_split(src_db, table, partition_col, partitions=10, where_clause='', cov_utf8=True, echo=False):
+def get_sql_table_split(src_db, table, partition_col, partitions=10, 
+  where_clause='', cov_utf8=True, echo=False,):
 
   ######## Split and group the dates
 
