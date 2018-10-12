@@ -510,7 +510,7 @@ def get_sql_table_split(src_db, table, partition_col, partitions=10,
 
   ######## Split and group the dates
 
-  conn = get_conn(src_db, echo=echo)
+  conn = get_conn(src_db, echo=echo, reconnect=True)
 
   split_data = conn.select(
     conn.template('routine.number_trunc_uniques').format(
@@ -586,6 +586,7 @@ def db_table_to_ff_stream(src_db,
                      table,
                      partition_col,
                      out_folder,
+                     out_type='parquet',
                      where_clause='',
                      partitions=10,
                      file_name=None,
@@ -633,7 +634,8 @@ def db_table_to_ff_stream(src_db,
     try:
       counter = write_pqs(
         file_path,
-        conn.stream(sql, dtype='dataframe', yield_chuncks=True, echo=False),
+        conn.stream(sql, dtype='dataframe', yield_chuncks=True, chunk_size=200000, echo=False),
+        append=True,
         log=log2)
 
       queue.put(('wrote-counter', counter))
