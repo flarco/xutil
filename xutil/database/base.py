@@ -386,7 +386,11 @@ class DBConn(object):
     if self.cursor is not None:
       self.cursor.close()
 
-    self.cursor = self.connection.cursor()
+    try:
+      self.cursor = self.connection.cursor()
+    except:
+      self.reconnect()
+      self.cursor = self.connection.cursor()
 
     return self.cursor
 
@@ -424,6 +428,7 @@ class DBConn(object):
              rec_name='Record',
              dtype='namedtuple',
              yield_chuncks=False,
+             chunk_size=None,
              limit=None,
              echo=True):
     "Stream Select from SQL, yield records as they come in"
@@ -433,6 +438,7 @@ class DBConn(object):
     self.get_cursor()
 
     fetch_size = limit if limit else self.fetch_size
+    fetch_size = chunk_size if chunk_size else fetch_size
     self.cursor.arraysize = fetch_size
     # self.cursor.itersize = fetch_size
 

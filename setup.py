@@ -21,6 +21,7 @@ setup(
     "paramiko",
     "redis",
     "cx_Oracle",
+    "psycopg2",
     "pymongo",
     "jaydebeapi",  # needs gcc and g++ to be installed
     "requests",

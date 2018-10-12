@@ -227,6 +227,7 @@ class PostgreSQLConn(DBConn):
              rec_name='Record',
              dtype='namedtuple',
              yield_chuncks=False,
+             chunk_size=None,
              limit=None,
              echo=True):
     "Stream Select from SQL, yield records as they come in"
@@ -241,12 +242,14 @@ class PostgreSQLConn(DBConn):
 
     self._stream_counter = 0
     fetch_size = limit if limit else self.fetch_size
+    fetch_size = chunk_size if chunk_size else fetch_size
     make_rec = None
     fields = None
     done = False
 
     cursor = self.connection.cursor(
-      name='cursor_' + str(int(time.time())), cursor_factory=NamedTupleCursor)
+      name='cursor_' + str(int(time.time() * 1000)),
+      cursor_factory=NamedTupleCursor)
     cursor.itersize = fetch_size
 
     try:

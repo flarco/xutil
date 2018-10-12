@@ -307,7 +307,8 @@ def write_pq(
     partition_cols=partition_cols,
     flavor=flavor,
     preserve_index=False,
-    filesystem=filesystem)  # will append. delete folder for overwrite
+    filesystem=filesystem,
+    compression='snappy')  # will append. delete folder for overwrite
 
   secs = (now() - s_t).total_seconds()
   rate = round(counter / secs, 1)
@@ -347,7 +348,7 @@ def write_pqs(
       flavor=flavor,
       preserve_index=False,
       filesystem=filesystem,
-    )  # will append. delete folder for overwrite
+      compression='snappy')  # will append. delete folder for overwrite
 
     secs_l = (now() - l_t).total_seconds()
     if secs_l >= secs_d:
