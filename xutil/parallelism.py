@@ -3,11 +3,12 @@
 Threads
 Multiprocessing
 '''
-import os, socket
+import os, socket, time
 from .helpers import (log, slog, elog, get_exception_message, now,
                       ndelta_seconds, get_home_path, cleanup_pid, register_pid,
                       get_pid_path)
 from .diskio import (write_file, read_file)
+from functools import wraps
 
 from collections import (
   OrderedDict,
@@ -165,9 +166,9 @@ class Worker:
 
 
 def kill_processes(name):
-  import os, sys, psutil, signal
+  import sys, psutil, signal
 
-  # signal_val = int(sys.argv[2]) if len(sys.argv) == 3 else signal.SIGTERM
+  signal_val = int(sys.argv[2]) if len(sys.argv) == 3 else signal.SIGTERM
   signal_val = 9
 
   user = os.getenv('USER')
