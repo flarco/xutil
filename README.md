@@ -12,6 +12,14 @@ This link displayed how to do this back with Youtube.
 pip install -U git+git://github.com/flarco/xutil.git
 ```
 
+## Windows
+
+If you face the message 'error: Microsoft Visual C++ 14.0 is required. Get it with "Microsoft Visual C++ Build Tools"', you can quickly install the build tools with chocolatey (https://chocolatey.org/)
+
+```
+choco install -y VisualCppBuildTools
+```
+
 # Database
 
 Why not use SQLAlchemy (SA)? http://docs.sqlalchemy.org/en/latest/faq/performance.html#i-m-inserting-400-000-rows-with-the-orm-and-it-s-really-slow
