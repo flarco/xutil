@@ -1058,6 +1058,7 @@ class Project:
       item['date_column_map'] = item.get('date_column_map', '')
       item['order_column_map'] = item.get('order_column_map', '')
       item['where_clause'] = item.get('where_clause', '')
+      item['where_clause_template'] = item.get('where_clause_template', '')
       item['grant_sql_template'] = item.get('grant_sql_template', '')
       item['post_sql_template'] = item.get('post_sql_template', '')
       item['gzip'] = item.get('gzip', False)
@@ -1088,6 +1089,13 @@ class Project:
 
         if 'table_list' in item:
           for n, table in enumerate(item_['table_list']):
+            where_clause = None
+            table_dict = table if isinstance(table, dict) else None
+
+            if table_dict:
+              where_clause = table_dict['where_clause'] if 'where_clause' in table_dict else where_clause
+              table = table_dict['table']
+            
             item = copy.deepcopy(item_)
             shema_nm = table.split('.')[0].replace('[', '').replace(']', '')
             table_nm = table.split('.')[-1]
@@ -1098,6 +1106,7 @@ class Project:
             tgt_table = '{}_{}'.format(shema_nm, table_nm).lower() if item[
               'naming_include_schema'] else table_nm.lower()
             tgt_table = item['naming_prefix'] + tgt_table
+            tgt_table = table_dict['tgt_table'] if table_dict and 'tgt_table' in table_dict else tgt_table
             item['tgt_table'] = item['tgt_table'] if 'tgt_table' in item else tgt_table
             item['tgt_table'] = '{}.{}'.format(item['tgt_schema'], item['tgt_table']) if item['tgt_schema'] else item[
               'tgt_table']
@@ -1113,17 +1122,15 @@ class Project:
               item['order_field'] = self.variables['column_map_order'][table] if table in self.variables[
                 'column_map_order'] else None
 
-            if item['partition_col'] and item['where_clause'] and item['where_clause'] in self.variables:
-              item['where_clause'] = self.variables[item['where_clause']].format(
+            if item['date_field'] and item['where_clause_template'] and item['where_clause_template'] in self.variables:
+              where_clause = self.variables[item['where_clause_template']].format(
                 col=item['partition_col'],
                 start_date=self.variables['start_date'],
                 end_date=self.variables['end_date'],
               )
 
-            elif item['where_clause'] and not item['partition_col']:
-              raise Exception(
-                'date field not declared in "column_map_date" variables for workflow "{}" / table "{}"'.format(name,
-                                                                                                               table))
+            if item['where_clause'] and not where_clause:
+              where_clause = item['where_clause']
 
             item['grant_sql'] = item['grant_sql_template'].format(table=item['tgt_table']) if item[
               'grant_sql_template'] else item['grant_sql']
@@ -1146,7 +1153,7 @@ class Project:
                 tgt_mode=item['mode'],
                 partition_col=item['partition_col'],
                 order_by=item['order_field'],
-                where_clause=item['where_clause'],
+                where_clause=where_clause,
                 grant_sql=item['grant_sql'],
                 post_sql=item['post_sql'],
                 partitions=item['partitions'],
