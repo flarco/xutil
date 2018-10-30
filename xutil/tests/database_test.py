@@ -133,8 +133,19 @@ def make_test_functions(db_name, schema, obj, pre_sql=None):
     test_analyze_tables=test_analyze_tables,
   )
 
+def test_lineage():
+  from xutil.database.base import get_sql_sources
+  from xutil.diskio import read_file
+
+  sql = read_file(r'C:\__\Temp\test.sql')
+  sources = get_sql_sources(sql)
+  print(sources)
+
 
 if __name__ == '__main__':
+  test_lineage()
+  sys.exit(0)
+  
   dbs = get_databases()
   for db_name in dbs['TESTS']:
     schema, obj = dbs['TESTS'][db_name]['object'].split('.')

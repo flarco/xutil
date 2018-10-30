@@ -1025,3 +1025,83 @@ def make_sqlx(conn, schema, tables):
     return obj
 
   return sqlx
+
+
+def get_sql_sources(sql_text, echo=False):
+  """Obtain the source tables of a query
+  """
+
+  import sqlparse
+  statements = sqlparse.parse(sql_text)
+  cte_aliases = set()
+  sql_sources = {}
+
+  def get_sources(statement):
+    sources_dict = {}
+    last_kw_from = False
+    last_kw_join = False
+    last_tok = None
+    done = False
+
+    while not done:
+      for tok in statement.tokens:
+        
+        if tok.is_group:
+          for tok2 in tok.tokens:
+            if isinstance(tok2, sqlparse.sql.Parenthesis):
+              cte_aliases.add(tok2.parent.normalized)
+              sources_dict2 = get_sources(tok2)
+              sources_dict = {**sources_dict, **sources_dict2}
+          
+
+        if (last_kw_from or last_kw_join) and last_tok.is_whitespace:
+          if isinstance(tok, sqlparse.sql.IdentifierList):
+            for tok2 in tok.tokens:
+              if isinstance(tok2, sqlparse.sql.Identifier) and tok2.normalized not in cte_aliases:
+                if echo: log('+Table = ' + tok2.normalized)
+                sources_dict[tok2.normalized] = tok.parent
+              
+          elif isinstance(tok, sqlparse.sql.Identifier) and tok.normalized not in cte_aliases:
+            if echo: log('+Table = ' + tok.normalized)
+            sources_dict[tok.normalized] = tok.parent
+          
+          last_kw_from = False
+          last_kw_join = False
+
+        if tok.is_keyword and tok.normalized == 'FROM':
+          last_kw_from = True
+        if tok.is_keyword and 'JOIN' in tok.normalized:
+          last_kw_join = True
+
+        last_tok = tok
+      done = True
+    return sources_dict 
+
+  for s, statement in enumerate(statements):
+    has_from = False
+    last_kw_create = False
+    last_kw_create_table = False
+    create_table = None
+
+    for tok in statement.tokens:
+      if isinstance(tok, sqlparse.sql.Identifier) and last_kw_create_table:
+        create_table = tok.normalized
+        last_kw_create_table = False
+        last_kw_create = False
+        if echo: log('-CREATE TABLE ' + create_table)
+      if tok.is_keyword and tok.normalized == 'TABLE' and last_kw_create:
+         last_kw_create_table = True
+      if tok.is_keyword and tok.normalized == 'CREATE':
+        last_kw_create = True
+      if tok.is_keyword and tok.normalized == 'FROM':
+        has_from = True
+      last_tok = tok
+    
+    if has_from:
+      sources_dict = get_sources(statement)
+      if create_table:
+        sql_sources[create_table] = sorted(sources_dict)
+      else:
+        sql_sources[s] = sorted(sources_dict)
+
+  return sql_sources
