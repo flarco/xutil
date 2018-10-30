@@ -34,6 +34,7 @@ setup(
     "scrapy",
     "pyarrow",
     "s3fs",
+    "sqlparse",
 
     # web
     "python-socketio",
