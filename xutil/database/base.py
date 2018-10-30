@@ -1060,6 +1060,9 @@ def get_sql_sources(sql_text, echo=False):
                     cte_aliases.add(tok3.parent.normalized)
                     sources_dict2 = get_sources(tok3)
                     sources_dict = {**sources_dict, **sources_dict2}
+          elif isinstance(tok, sqlparse.sql.Parenthesis):
+            sources_dict2 = get_sources(tok)
+            sources_dict = {**sources_dict, **sources_dict2}
           else:
             for tok2 in tok.tokens:
               if isinstance(tok2, sqlparse.sql.Parenthesis):
