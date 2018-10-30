@@ -1032,6 +1032,10 @@ def get_sql_sources(sql_text, echo=False):
   """
 
   import sqlparse
+
+  # replace "as(" to "as (" # this trips up the sql parser in CTEs
+  sql_text = re.sub(r"as\(", "as (", sql_text, 0, re.MULTILINE | re.IGNORECASE)
+
   statements = sqlparse.parse(sql_text)
   cte_aliases = set()
   sql_sources = {}
@@ -1040,6 +1044,7 @@ def get_sql_sources(sql_text, echo=False):
     sources_dict = {}
     last_kw_from = False
     last_kw_join = False
+    cte_mode = False
     last_tok = None
     done = False
 
@@ -1047,11 +1052,20 @@ def get_sql_sources(sql_text, echo=False):
       for tok in statement.tokens:
         
         if tok.is_group:
-          for tok2 in tok.tokens:
-            if isinstance(tok2, sqlparse.sql.Parenthesis):
-              cte_aliases.add(tok2.parent.normalized)
-              sources_dict2 = get_sources(tok2)
-              sources_dict = {**sources_dict, **sources_dict2}
+          if cte_mode and isinstance(tok, sqlparse.sql.IdentifierList):
+            for tok2 in tok.tokens:
+              if isinstance(tok2, sqlparse.sql.Identifier):
+                for tok3 in tok2.tokens:
+                  if isinstance(tok3, sqlparse.sql.Parenthesis):
+                    cte_aliases.add(tok3.parent.normalized)
+                    sources_dict2 = get_sources(tok3)
+                    sources_dict = {**sources_dict, **sources_dict2}
+          else:
+            for tok2 in tok.tokens:
+              if isinstance(tok2, sqlparse.sql.Parenthesis):
+                cte_aliases.add(tok2.parent.normalized)
+                sources_dict2 = get_sources(tok2)
+                sources_dict = {**sources_dict, **sources_dict2}
           
 
         if (last_kw_from or last_kw_join) and last_tok.is_whitespace:
@@ -1068,9 +1082,15 @@ def get_sql_sources(sql_text, echo=False):
           last_kw_from = False
           last_kw_join = False
 
-        if tok.is_keyword and tok.normalized == 'FROM':
+        if tok.is_keyword and tok.normalized == 'WITH':
+          cte_mode = True
+        elif tok.is_keyword and tok.normalized == 'CREATE':
+          cte_mode = True
+        elif tok.is_keyword and tok.normalized == 'SELECT':
+          cte_mode = False
+        elif tok.is_keyword and tok.normalized == 'FROM':
           last_kw_from = True
-        if tok.is_keyword and 'JOIN' in tok.normalized:
+        elif tok.is_keyword and 'JOIN' in tok.normalized:
           last_kw_join = True
 
         last_tok = tok

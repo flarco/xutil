@@ -136,10 +136,11 @@ def make_test_functions(db_name, schema, obj, pre_sql=None):
 def test_lineage():
   from xutil.database.base import get_sql_sources
   from xutil.diskio import read_file
+  from pprint import pprint
 
   sql = read_file(r'C:\__\Temp\test.sql')
   sources = get_sql_sources(sql)
-  print(sources)
+  pprint(sources)
 
 
 if __name__ == '__main__':
