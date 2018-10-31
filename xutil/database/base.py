@@ -1057,7 +1057,7 @@ def get_sql_sources(sql_text, echo=False):
               if isinstance(tok2, sqlparse.sql.Identifier):
                 for tok3 in tok2.tokens:
                   if isinstance(tok3, sqlparse.sql.Parenthesis):
-                    cte_aliases.add(tok3.parent.normalized)
+                    cte_aliases.add(tok3.parent.normalized.lower())
                     sources_dict2 = get_sources(tok3)
                     sources_dict = {**sources_dict, **sources_dict2}
           elif isinstance(tok, sqlparse.sql.Parenthesis):
@@ -1066,7 +1066,7 @@ def get_sql_sources(sql_text, echo=False):
           else:
             for tok2 in tok.tokens:
               if isinstance(tok2, sqlparse.sql.Parenthesis):
-                cte_aliases.add(tok2.parent.normalized)
+                cte_aliases.add(tok2.parent.normalized.lower())
                 sources_dict2 = get_sources(tok2)
                 sources_dict = {**sources_dict, **sources_dict2}
           
@@ -1074,23 +1074,38 @@ def get_sql_sources(sql_text, echo=False):
         if (last_kw_from or last_kw_join) and last_tok.is_whitespace:
           if isinstance(tok, sqlparse.sql.IdentifierList):
             for tok2 in tok.tokens:
-              if isinstance(tok2, sqlparse.sql.Identifier) and tok2.normalized not in cte_aliases:
-                if echo: log('+Table = ' + tok2.normalized)
-                sources_dict[tok2.normalized] = tok.parent
+              if isinstance(tok2, sqlparse.sql.Identifier) and '(' in tok2.value:
+                sources_dict2 = get_sources(tok2)
+                sources_dict = {**sources_dict, **sources_dict2}
+              elif isinstance(tok2, sqlparse.sql.Identifier) and tok2.normalized.lower() not in cte_aliases:
+                if echo: log('+Table = ' + tok2.normalized.lower())
+                sources_dict[tok2.normalized.lower()] = tok.parent
               
-          elif isinstance(tok, sqlparse.sql.Identifier) and tok.normalized not in cte_aliases:
-            if echo: log('+Table = ' + tok.normalized)
-            sources_dict[tok.normalized] = tok.parent
+          elif isinstance(tok, sqlparse.sql.Identifier) and tok.normalized.lower() not in cte_aliases:
+            if echo: log('+Table = ' + tok.normalized.lower())
+            sources_dict[tok.normalized.lower()] = tok.parent
           
-          last_kw_from = False
+
           last_kw_join = False
 
         if tok.is_keyword and tok.normalized == 'WITH':
           cte_mode = True
+          last_kw_from = False
+        elif tok.is_keyword and tok.normalized == 'GROUP':
+          last_kw_join = False
+          last_kw_from = False
+        elif tok.is_keyword and tok.normalized == 'WHERE':
+          last_kw_join = False
+          last_kw_from = False
+        elif tok.is_keyword and tok.normalized == 'ORDER':
+          last_kw_join = False
+          last_kw_from = False
         elif tok.is_keyword and tok.normalized == 'CREATE':
           cte_mode = True
+          last_kw_from = False
         elif tok.is_keyword and tok.normalized == 'SELECT':
           cte_mode = False
+          last_kw_from = False
         elif tok.is_keyword and tok.normalized == 'FROM':
           last_kw_from = True
         elif tok.is_keyword and 'JOIN' in tok.normalized:
@@ -1098,7 +1113,7 @@ def get_sql_sources(sql_text, echo=False):
 
         last_tok = tok
       done = True
-    return sources_dict 
+    return sources_dict
 
   for s, statement in enumerate(statements):
     has_from = False
