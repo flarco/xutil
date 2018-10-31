@@ -1,5 +1,17 @@
 from distutils.core import setup
 from setuptools import find_packages
+
+jdbc = ['jaydebeapi']
+hive = [
+  "thrift",
+  "sasl", # need sasl.h library
+  "thrift_sasl",
+]
+web = [
+  "python-socketio",
+  "scrapy"
+]
+
 setup(
   name='xutil',
   # packages=['xutil'],
@@ -23,7 +35,6 @@ setup(
     "cx_Oracle",
     "psycopg2",
     "pymongo",
-    "jaydebeapi",  # needs gcc and g++ to be installed
     "requests",
     "pyspark",
     "hdfs",
@@ -31,19 +42,15 @@ setup(
     "sqlalchemy",
     "halo",
     "prettytable",
-    "scrapy",
     "pyarrow",
     "s3fs",
-    "sqlparse",
-
-    # web
-    "python-socketio",
-
-    # pyhive
-    # "thrift",
-    # "sasl", # need sasl.h library
-    # "thrift_sasl",
+    "sqlparse"
   ],
+  extras_require={
+    'jdbc': jdbc,  # needs gcc and g++ to be installed
+    'hive': hive,
+    'web': web,
+  },
   entry_points={
     'console_scripts': [
       'pykill=xutil.cli:pykill',
