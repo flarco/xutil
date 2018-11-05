@@ -6,6 +6,7 @@ Telegram
 Web Hooks
 '''
 import os, socket, json
+import re
 
 ## HTML ####################
 
@@ -86,7 +87,7 @@ def extract_text_from_html(html_source):
       return False
     return True
 
-  soup = BeautifulSoup(html_source)
+  soup = BeautifulSoup(html_source, "lxml")
   texts = soup.findAll(text=True)
   text = "\r\n".join(filter(visible, texts))
   return text
@@ -144,6 +145,23 @@ def send_email_html(smtp,
   smtp.sendmail(strFrom, strTo, msgRoot.as_string())
   smtp.quit()
 
+def send_from_gmail(email_user,
+                    email_pwd,
+                    to_address,
+                    subject,
+                    body_text,
+                    images_jpg_path=[]):
+  import smtplib
+  smtp = smtplib.SMTP("smtp.gmail.com", 587, 'localhost', 30)
+  smtp.ehlo()
+  smtp.starttls()
+  send_email_html(smtp=smtp,
+                  email_user=email_user,
+                  email_pwd=email_pwd,
+                  to_address=to_address,
+                  subject=subject,
+                  body_text=body_text,
+                  images_jpg_path=images_jpg_path)
 
 def send_email_exchange(to_address,
                         subject,
