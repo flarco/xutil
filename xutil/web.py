@@ -163,6 +163,44 @@ def send_from_gmail(email_user,
                   body_text=body_text,
                   images_jpg_path=images_jpg_path)
 
+def send_from_outlook(email_user,
+                    email_pwd,
+                    to_address,
+                    subject,
+                    body_text,
+                    images_jpg_path=[]):
+  import smtplib
+  smtp = smtplib.SMTP("smtp-mail.outlook.com", 587, 'localhost', 30)
+  smtp.ehlo()
+  smtp.starttls()
+  send_email_html(smtp=smtp,
+                  email_user=email_user,
+                  email_pwd=email_pwd,
+                  to_address=to_address,
+                  subject=subject,
+                  body_text=body_text,
+                  images_jpg_path=images_jpg_path)
+
+
+def send_from_yahoo(email_user,
+                    email_pwd,
+                    to_address,
+                    subject,
+                    body_text,
+                    images_jpg_path=[]):
+  import smtplib
+  smtp = smtplib.SMTP("smtp.mail.yahoo.com", 465, 'localhost', 30)
+  smtp.ehlo()
+  smtp.starttls()
+  send_email_html(smtp=smtp,
+                  email_user=email_user,
+                  email_pwd=email_pwd,
+                  to_address=to_address,
+                  subject=subject,
+                  body_text=body_text,
+                  images_jpg_path=images_jpg_path)
+
+
 def send_email_exchange(to_address,
                         subject,
                         body_text,
