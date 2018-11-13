@@ -9,6 +9,7 @@ hive = [
 ]
 web = [
   "python-socketio",
+  "eventlet",
   "scrapy"
 ]
 
