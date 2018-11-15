@@ -241,6 +241,16 @@ analysis:
     group by year({date_field}), month({date_field})
     order by year({date_field}), month({date_field})
 
+  test_pk: |
+    select
+      '{schema}.{table}' as table_nm,
+      '{fields_exp}' as expression,
+      case when count(1) = count(distinct {fields_exp}) then 'PASS' else 'FAIL' end as pk_result,
+      count(1) as tot_cnt,
+      count(distinct {fields_exp}) as expression_cnt
+    from {schema}.{table}
+    {where_clause}
+
 routine:
   number_min_max: |
     select
