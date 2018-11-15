@@ -308,6 +308,7 @@ def write_pq(
     flavor=flavor,
     preserve_index=False,
     filesystem=filesystem,
+    use_deprecated_int96_timestamps=True,
     compression='snappy')  # will append. delete folder for overwrite
 
   secs = (now() - s_t).total_seconds()
@@ -348,6 +349,7 @@ def write_pqs(
       flavor=flavor,
       preserve_index=False,
       filesystem=filesystem,
+      use_deprecated_int96_timestamps=True,
       compression='snappy')  # will append. delete folder for overwrite
 
     secs_l = (now() - l_t).total_seconds()

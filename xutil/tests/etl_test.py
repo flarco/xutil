@@ -6,12 +6,23 @@ from xutil import log
 def test_db_table_to_ff_stream():
   from xutil import get_conn
   from xutil.database.etl import db_table_to_ff_stream
-  csv_path = db_table_to_ff_stream(
+  file_path = db_table_to_ff_stream(
     'ORCL_XENIAL',
-    'HR.EMPLOYEES',
-    "to_number(to_char(HIRE_DATE, 'j'))",
-    out_folder='/tmp',
-    gzip=False)
+    'HR.orange_county_data',
+    "to_number(to_char(date_of_sale, 'j'))",
+    out_folder='/tmp')
+  file_path = db_table_to_ff_stream(
+    'PG_XENIAL',
+    'housing.orange_county_data',
+    partition_col="trunc(extract(epoch from date_of_sale)/(60*60*24))::int",
+    out_type='csv',
+    out_folder='/tmp')
+  file_path = db_table_to_ff_stream(
+    'PG_XENIAL',
+    'crypto.bittrex_prices',
+    partition_col="trunc(extract(epoch from timestamp)/(60*60))::int",
+    out_type='parquet',
+    out_folder='/tmp')
 
 
 def test_stream(db, sql):
@@ -158,6 +169,7 @@ def text_db_to_ff():
   ######## PG to Parquet
   from xutil import get_conn
   from xutil.diskio import write_pq, write_pqs, write_csvs
+
   from s3fs import S3FileSystem
   s3 = S3FileSystem()
 
@@ -166,6 +178,8 @@ def text_db_to_ff():
     'select * from housing.orange_county_data',
     dtype='dataframe',
   )
+  dfs = list(df_chunks)
+
   write_pqs(
     '/tmp/housing.orange_county_data',
     df_chunks,
