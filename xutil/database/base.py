@@ -826,7 +826,7 @@ class DBConn(object):
         schema=schema,
         field=field,
         table=table,
-        type=field_type[field.lower()],
+        type=field_type[field.lower()] if field else '',
         **expr_func_map,
         **kwargs) for field in fields
     ])
