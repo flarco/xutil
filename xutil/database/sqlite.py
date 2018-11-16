@@ -32,7 +32,7 @@ class SQLiteConn(DBConn):
   def connect(self):
     "Connect / Re-Connect to Database"
     import sqlite3
-    self.connection = sqlite3.connect(self._cred.database)
+    self.connection = sqlite3.connect(self._cred.database, timeout=15)
     self.cursor = None
 
     # self.connection.autocommit = True
