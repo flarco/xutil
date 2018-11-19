@@ -147,14 +147,11 @@ def send_email_html(smtp,
   smtp.quit()
 
 
-def send_from_gmail(email_user,
-                    email_pwd,
-                    to_address,
-                    subject,
-                    body_text,
-                    images_jpg_path=[]):
+def send_from_gmail(to_address, subject, body_text, images_jpg_path=[]):
   import smtplib
   smtp = smtplib.SMTP("smtp.gmail.com", 587, 'localhost', 30)
+  email_user = os.getenv("SMTP_USER")
+  email_pwd = os.getenv("SMTP_PASSWORD")
   smtp.ehlo()
   smtp.starttls()
   send_email_html(
@@ -167,14 +164,11 @@ def send_from_gmail(email_user,
     images_jpg_path=images_jpg_path)
 
 
-def send_from_outlook(email_user,
-                      email_pwd,
-                      to_address,
-                      subject,
-                      body_text,
-                      images_jpg_path=[]):
+def send_from_outlook(to_address, subject, body_text, images_jpg_path=[]):
   import smtplib
   smtp = smtplib.SMTP("smtp-mail.outlook.com", 587, 'localhost', 30)
+  email_user = os.getenv("SMTP_USER")
+  email_pwd = os.getenv("SMTP_PASSWORD")
   smtp.ehlo()
   smtp.starttls()
   send_email_html(
@@ -187,14 +181,11 @@ def send_from_outlook(email_user,
     images_jpg_path=images_jpg_path)
 
 
-def send_from_yahoo(email_user,
-                    email_pwd,
-                    to_address,
-                    subject,
-                    body_text,
-                    images_jpg_path=[]):
+def send_from_yahoo(to_address, subject, body_text, images_jpg_path=[]):
   import smtplib
   smtp = smtplib.SMTP("smtp.mail.yahoo.com", 465, 'localhost', 30)
+  email_user = os.getenv("SMTP_USER")
+  email_pwd = os.getenv("SMTP_PASSWORD")
   smtp.ehlo()
   smtp.starttls()
   send_email_html(
