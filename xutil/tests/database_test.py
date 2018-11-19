@@ -14,6 +14,16 @@ orig_stdout = sys.stdout
 orig_stderr = sys.stderr
 
 
+def test_join_match():
+  t1 = 'bank.mint_categories'
+  t2 = 'bank.mint_categories'
+  t1_field = 'category, sub_category'
+  t2_field = 'category, sub_category'
+  conn = get_conn('PG_XENIAL')
+  rows = conn.analyze_join_match(t1, t2, t1_field, t2_field, as_sql=False)
+  print(rows)
+
+
 class DatabaseTest(TestCase):
   debug = True
 
@@ -133,6 +143,7 @@ def make_test_functions(db_name, schema, obj, pre_sql=None):
     test_analyze_tables=test_analyze_tables,
   )
 
+
 def test_lineage():
   from xutil.database.base import get_sql_sources
   from xutil.diskio import read_file
@@ -146,7 +157,7 @@ def test_lineage():
 if __name__ == '__main__':
   test_lineage()
   sys.exit(0)
-  
+
   dbs = get_databases()
   for db_name in dbs['TESTS']:
     schema, obj = dbs['TESTS'][db_name]['object'].split('.')

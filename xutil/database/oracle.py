@@ -290,3 +290,8 @@ class OracleConn(DBConn):
       log("Inserted {} records into table '{}' in {} mins [{} r/s].".format(
         counter, table, mins, rate))
     return counter
+
+  def _concat_fields(self, fields, as_text=False):
+    if as_text:
+      fields = ['cast({} as varchar2(4000))'.format(f) for f in fields]
+    return ' || '.join(fields)

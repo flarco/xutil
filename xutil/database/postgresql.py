@@ -508,3 +508,8 @@ class PostgreSQLConn(DBConn):
         rate,
       ))
     return counter
+
+  def _concat_fields(self, fields, as_text=False):
+    if as_text:
+      fields = ['{}::text'.format(f) for f in fields]
+    return ' || '.join(fields)

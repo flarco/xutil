@@ -545,6 +545,9 @@ class DBConn(object):
       self.username, table_name)
     return schema, table
 
+  def _concat_fields(self, fields, as_text=False):
+    return ' || '.join(fields)
+
   def template(self, template_key_str):
     val = jmespath.search(template_key_str, self.template_dict)
     if isinstance(val, str):
@@ -855,6 +858,62 @@ class DBConn(object):
     return sql if as_sql else self.select(sql, analysis, echo=False)
 
 
+  def analyze_join_match(self,
+                        t1,
+                        t2,
+                        t1_field,
+                        t2_field,
+                        t1_filter='1=1',
+                        t2_filter='1=1',
+                        as_sql=False,
+                        as_text=True,
+                        lowercase=True):
+    def get_kwargs(t1, t2, t1_field, t2_field, t1_filter, t2_filter):
+      t1_field_arr = ['t1.' + f for f in t1_field.split(',')]
+      t2_field_arr = ['t2.' + f for f in t2_field.split(',')]
+      t1_field_concat = self._concat_fields(t1_field_arr, as_text=as_text)
+      t2_field_concat = self._concat_fields(t2_field_arr, as_text=as_text)
+      if lowercase:
+        conds = ' and '.join([
+          'lower({}) = lower({})'.format(f, t2_field_arr[i])
+          for i, f in enumerate(t1_field_arr)
+        ])
+      else:
+        conds = ' and '.join([
+          '{} = {}'.format(f, t2_field_arr[i])
+          for i, f in enumerate(t1_field_arr)
+        ])
+      t1_fields1 = t1_field
+      t2_fields1 = t2_field
+      t1_field = ', '.join(['t1.' + f for f in t1_field_arr])
+      t2_field = ', '.join(['t2.' + f for f in t2_field_arr])
+
+      return dict(
+        t1=t1,
+        t1_field=t1_field_concat,
+        t1_fields1=t1_fields1,
+        t1_filter=t1_filter,
+        t2=t2,
+        t2_field=t2_field_concat,
+        t2_fields1=t2_fields1,
+        t2_filter=t2_filter,
+        conds=conds,
+      )
+
+    kwargs = get_kwargs(
+      t1=t1,
+      t2=t2,
+      t1_field=t1_field,
+      t2_field=t2_field,
+      t1_filter=t1_filter,
+      t2_filter=t2_filter,
+    )
+    sql = self.analyze_fields(
+      'table_join_match', t1, [''], as_sql=True, **kwargs)
+
+    return sql if as_sql else self.select(sql, 'table_join_match', echo=False)
+
+
 def get_conn(db,
              dbs=None,
              echo=True,
@@ -1050,7 +1109,7 @@ def get_sql_sources(sql_text, echo=False):
 
     while not done:
       for tok in statement.tokens:
-        
+
         if tok.is_group:
           if cte_mode and isinstance(tok, sqlparse.sql.IdentifierList):
             for tok2 in tok.tokens:
@@ -1069,7 +1128,7 @@ def get_sql_sources(sql_text, echo=False):
                 cte_aliases.add(tok2.parent.normalized.lower())
                 sources_dict2 = get_sources(tok2)
                 sources_dict = {**sources_dict, **sources_dict2}
-          
+
 
         if (last_kw_from or last_kw_join) and last_tok.is_whitespace:
           if isinstance(tok, sqlparse.sql.IdentifierList):
@@ -1080,11 +1139,11 @@ def get_sql_sources(sql_text, echo=False):
               elif isinstance(tok2, sqlparse.sql.Identifier) and tok2.normalized.lower() not in cte_aliases:
                 if echo: log('+Table = ' + tok2.normalized.lower())
                 sources_dict[tok2.normalized.lower()] = tok.parent
-              
+
           elif isinstance(tok, sqlparse.sql.Identifier) and tok.normalized.lower() not in cte_aliases:
             if echo: log('+Table = ' + tok.normalized.lower())
             sources_dict[tok.normalized.lower()] = tok.parent
-          
+
 
           last_kw_join = False
 
@@ -1128,13 +1187,13 @@ def get_sql_sources(sql_text, echo=False):
         last_kw_create = False
         if echo: log('-CREATE TABLE ' + create_table)
       if tok.is_keyword and tok.normalized == 'TABLE' and last_kw_create:
-         last_kw_create_table = True
+        last_kw_create_table = True
       if tok.is_keyword and tok.normalized == 'CREATE':
         last_kw_create = True
       if tok.is_keyword and tok.normalized == 'FROM':
         has_from = True
       last_tok = tok
-    
+
     if has_from:
       sources_dict = get_sources(statement)
       if create_table:

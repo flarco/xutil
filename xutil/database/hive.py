@@ -408,6 +408,11 @@ class Beeline(HiveConn):
 
     return data
 
+  def _concat_fields(self, fields, as_text=False):
+    if as_text:
+      fields = ['cast({} as string)'.format(f) for f in fields]
+    return 'concat({})'.format(', '.join(fields))
+
   def get_tables(self, schema, echo=True):
     "Get metadata for tables."
     Rec = namedtuple('Table', 'schema table')
