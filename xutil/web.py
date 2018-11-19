@@ -201,7 +201,7 @@ def send_from_yahoo(to_address, subject, body_text, images_jpg_path=[]):
 def send_email_exchange(to_address,
                         subject,
                         body_text,
-                        sender,
+                        sender=os.getenv("SMTP_USER"),
                         attachments=[],
                         image_paths=[],
                         html=False):
