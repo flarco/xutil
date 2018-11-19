@@ -13,8 +13,9 @@ import re
 from xutil.helpers import (slog, elog, log, get_kw)
 from xutil.parallelism import Pipe, Worker
 from flask import Flask
-from scrapy.selector import Selector
-from scrapy.http import HtmlResponse
+
+# from scrapy.selector import Selector
+# from scrapy.http import HtmlResponse
 
 
 def generate_rmd_html(rmd_file,
@@ -145,6 +146,7 @@ def send_email_html(smtp,
   smtp.sendmail(strFrom, strTo, msgRoot.as_string())
   smtp.quit()
 
+
 def send_from_gmail(email_user,
                     email_pwd,
                     to_address,
@@ -155,31 +157,34 @@ def send_from_gmail(email_user,
   smtp = smtplib.SMTP("smtp.gmail.com", 587, 'localhost', 30)
   smtp.ehlo()
   smtp.starttls()
-  send_email_html(smtp=smtp,
-                  email_user=email_user,
-                  email_pwd=email_pwd,
-                  to_address=to_address,
-                  subject=subject,
-                  body_text=body_text,
-                  images_jpg_path=images_jpg_path)
+  send_email_html(
+    smtp=smtp,
+    email_user=email_user,
+    email_pwd=email_pwd,
+    to_address=to_address,
+    subject=subject,
+    body_text=body_text,
+    images_jpg_path=images_jpg_path)
+
 
 def send_from_outlook(email_user,
-                    email_pwd,
-                    to_address,
-                    subject,
-                    body_text,
-                    images_jpg_path=[]):
+                      email_pwd,
+                      to_address,
+                      subject,
+                      body_text,
+                      images_jpg_path=[]):
   import smtplib
   smtp = smtplib.SMTP("smtp-mail.outlook.com", 587, 'localhost', 30)
   smtp.ehlo()
   smtp.starttls()
-  send_email_html(smtp=smtp,
-                  email_user=email_user,
-                  email_pwd=email_pwd,
-                  to_address=to_address,
-                  subject=subject,
-                  body_text=body_text,
-                  images_jpg_path=images_jpg_path)
+  send_email_html(
+    smtp=smtp,
+    email_user=email_user,
+    email_pwd=email_pwd,
+    to_address=to_address,
+    subject=subject,
+    body_text=body_text,
+    images_jpg_path=images_jpg_path)
 
 
 def send_from_yahoo(email_user,
@@ -192,13 +197,14 @@ def send_from_yahoo(email_user,
   smtp = smtplib.SMTP("smtp.mail.yahoo.com", 465, 'localhost', 30)
   smtp.ehlo()
   smtp.starttls()
-  send_email_html(smtp=smtp,
-                  email_user=email_user,
-                  email_pwd=email_pwd,
-                  to_address=to_address,
-                  subject=subject,
-                  body_text=body_text,
-                  images_jpg_path=images_jpg_path)
+  send_email_html(
+    smtp=smtp,
+    email_user=email_user,
+    email_pwd=email_pwd,
+    to_address=to_address,
+    subject=subject,
+    body_text=body_text,
+    images_jpg_path=images_jpg_path)
 
 
 def send_email_exchange(to_address,
