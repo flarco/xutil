@@ -201,7 +201,7 @@ def send_from_yahoo(to_address, subject, body_text, images_jpg_path=[]):
 def send_email_exchange(to_address,
                         subject,
                         body_text,
-                        sender=os.getenv("SMTP_USER"),
+                        sender=None,
                         attachments=[],
                         image_paths=[],
                         html=False):
@@ -213,7 +213,7 @@ def send_email_exchange(to_address,
   from email.utils import COMMASPACE, formatdate
 
   msg = MIMEMultipart('related') if html else MIMEMultipart()
-  sender = sender
+  sender = sender if sender else os.getenv("SMTP_USER")
   to_address = to_address if isinstance(to_address, list) else [to_address]
 
   msg['From'] = sender
