@@ -41,7 +41,7 @@ SafeLoader.add_constructor(u'tag:yaml.org,2002:str', construct_yaml_str)
 def write_yaml(path, dict_):
   """Save a dict to a YAML file"""
   text = yaml.dump(dict_, default_flow_style=False)
-  write_file(text, path)
+  write_file(path, text, echo=True)
 
 
 def get_zip_path(path):
