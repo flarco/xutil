@@ -339,7 +339,13 @@ from xutil.diskio import read_yaml
 
 def load_profile():
   if not os.getenv('PROFILE_YAML'):
-    raise Exception("Env Var PROFILE_YAML is not set!")
+    def_profl_path = get_home_path() + '/profile.yaml'
+    templ_path = get_dir_path(__file__) + '/database/templates/profile.yaml'
+    if not file_exists(def_profl_path):
+      from xutil.diskio import read_file, write_file
+      write_file(def_profl_path, read_file(templ_path))
+    os.environ['PROFILE_YAML'] = def_profl_path
+    # raise Exception("Env Var PROFILE_YAML is not set!")
 
   dict_ = read_yaml(os.getenv('PROFILE_YAML'))
   if 'environment' in dict_:
