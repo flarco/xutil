@@ -334,18 +334,26 @@ def ptable(headers, rows, format='string', table=None):
 
 ### Profile ############################
 
-from xutil.diskio import read_yaml
+from xutil.diskio import read_file, write_file, read_yaml, write_yaml
 
 
-def load_profile():
+def save_profile(data):
+  profl_path = os.getenv('PROFILE_YAML', get_home_path() + '/profile.yaml')
+  profl_path = get_home_path() + '/profile.new.yaml'
+  write_yaml(profl_path, data)
+
+
+def load_profile(raw_text=False):
   if not os.getenv('PROFILE_YAML'):
     def_profl_path = get_home_path() + '/profile.yaml'
     templ_path = get_dir_path(__file__) + '/database/templates/profile.yaml'
     if not file_exists(def_profl_path):
-      from xutil.diskio import read_file, write_file
       write_file(def_profl_path, read_file(templ_path))
     os.environ['PROFILE_YAML'] = def_profl_path
     # raise Exception("Env Var PROFILE_YAML is not set!")
+
+  if raw_text:
+    return read_file(os.getenv('PROFILE_YAML'))
 
   dict_ = read_yaml(os.getenv('PROFILE_YAML'))
   if 'environment' in dict_:
