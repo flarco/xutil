@@ -1069,7 +1069,7 @@ class SqlX:
 def make_sqlx(conn, schema, tables):
   "Make sqlx lookup function for given tables"
 
-  table_func_map: typing.Dict[str, SqlX] = {}
+  table_func_map = {}
 
   for table in tables:
     ntRec = namedtuple(table, tables[table].columns.keys())
