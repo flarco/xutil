@@ -10,7 +10,7 @@ Spark
 import os, datetime, pandas, time, re
 from collections import namedtuple, OrderedDict
 
-import jmespath, typing
+import jmespath
 import sqlalchemy
 from multiprocessing import Queue, Process
 
