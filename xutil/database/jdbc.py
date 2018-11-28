@@ -1,6 +1,19 @@
 import os
 from xutil.database.base import DBConn
 from xutil.helpers import get_dir_path, slog
+from collections import namedtuple
+
+# TODO:
+# Add Metadata functions https://www.google.com/search?q=jaydebeapi+DatabaseMetaData
+# getColumns
+# getColumnPrivileges
+# getMetaData
+# getTypeInfo
+# getTables
+# getTableTypes
+
+# meta = conn.connection.jconn.getMetaData()
+# https://stackoverflow.com/a/21140430
 
 
 class JdbcConn(DBConn):
@@ -71,3 +84,15 @@ def get_jar_path(db_type, profile):
     raise Exception('Could not find JAR path "{}"'.format(jar_path))
 
   return jar_path
+
+
+def get_rows(rs):
+  "Get Rows from JPype resultset"
+  Row = None
+  rows = []
+  while rs.next():
+    cols = [c.name for c in rs.columns]
+    if not Row:
+      Row = namedtuple('Row', cols)
+    rows.append(Row(*rs.currentRow))
+  return rows
