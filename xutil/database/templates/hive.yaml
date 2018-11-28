@@ -9,7 +9,7 @@ metadata:
   columns: describe {schema}.{table}
   primary_keys: select 0 as schema, 1 table, 2 pk_name, 3 column_name, 4 column_order where 1=0
   indexes: select 0 schema, 1 table, 2 index_name, 3 column_name, 4 column_order, 5 unique where 1=0
-  ddl: show create table {table}
+  ddl: show create table {schema}.{table}
 
 analysis:
   chars: |
