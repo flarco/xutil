@@ -38,7 +38,7 @@ class Spark:
     # spark_home = spark_home if spark_home else findspark.find()
     # findspark.init(spark_home=spark_home)
 
-    os.environ['SPARK_HOME'] = spark_home
+    os.environ['SPARK_HOME'] = spark_home or os.environ['SPARK_HOME']
 
     from pyspark import SparkContext, SQLContext, SparkConf
     from pyspark.sql import SparkSession

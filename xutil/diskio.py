@@ -388,10 +388,10 @@ def write_to_excel(file_path, sheet_order, dict_of_datas):
   log("Wrote {} sheets to {}.".format(len(sheet_order), file_path))
 
 
-def get_hdfs():
+def get_hdfs(alias='lake'):
   # https://hdfscli.readthedocs.io/en/latest/api.html
   from hdfs import Config
-  client = Config().get_client('lake')
+  client = Config().get_client(alias)
   return client
 
 
