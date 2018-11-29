@@ -442,7 +442,7 @@ class WebApp:
   def __init__(self, name, root_path=None, flask_app=None):
     import os, sys, time, json
     import socketio, socket
-    from flask import Flask, request, make_response, render_template, send_from_directory
+    from flask import Flask, request, make_response, render_template, send_from_directory, redirect, url_for
 
     self.name = name
     self.cookie_session_key = name + '_SID'
@@ -452,6 +452,8 @@ class WebApp:
     self.log = log
     self.request = request
     self.make_response = make_response
+    self.redirect = redirect
+    self.url_for = url_for
     self.render_template = render_template
     self.send_from_directory = send_from_directory
 
@@ -488,6 +490,24 @@ class WebApp:
 
   def proc_request(self):
     return process_request(self.request)
+
+  def parse_sio_cookies(self, sio_environ):
+    "Extract Cookies from SIO Env data"
+    cookies = {}
+    headers = sio_environ.get('headers_raw', None)
+    cookies_raw = [h[1] for h in headers if h[0] == 'Cookie']
+    if not (headers or cookies_raw):
+      log('~~Headers or Cookies not found.')
+      return cookies
+
+    cookies_raw = cookies_raw[0]
+    cookies_kv = [kv.strip().split('=') for kv in cookies_raw.split(';')]
+    for kv in cookies_kv:
+      kv = [kv[0], '='.join(kv[1:])]
+      key, val = kv
+      cookies[key] = val
+    
+    return cookies
 
   def get_cookie_session_id(self):
     import random, string
