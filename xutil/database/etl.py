@@ -211,7 +211,7 @@ def db_to_db(src_db,
         src_sql = src_sql if src_sql else 'select * from ' + src_table
         data_strm = conn.stream(src_sql, rec_name=tgt_table)
         tot_cnt = write_csvs(file_path, data_strm, gzip=True, log=log)
-        file_path = file_path + '.gz'
+      file_path = file_path + '.gz'
 
     ff_to_db(
       file_path,
