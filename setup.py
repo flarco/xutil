@@ -58,6 +58,9 @@ setup(
       'exec-sql=xutil.cli:exec_sql',
       'exec-etl=xutil.cli:exec_etl',
       'xutil-alias=xutil.cli:alias_cli',
+      'xutil-create-profile=xutil.cli:create_profile',
+      'ipy=xutil.cli:ipy',
+      'ipy-spark=xutil.cli:ipy_spark',
     ],
   },
   classifiers=[

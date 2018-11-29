@@ -23,7 +23,21 @@ If you face the message 'error: Microsoft Visual C++ 14.0 is required. Get it wi
 choco install -y VisualCppBuildTools
 ```
 
-# Database
+# CLI
+
+Available commands:
+
+```bash
+xutil-alias          # add useful alias commands, see xutil/alias.sh
+xutil-create-profile # creates ~/profile.yaml from template.
+exec-etl --help      # Execute various ETL operations.
+exec-sql --help      # Execute SQL from command line
+ipy                  # launch ipython with pre-defined modules/functions imported
+ipy-spark --help     # launch ipython Spark with pre-defined modules/functions imported
+pykill pattern       # will swiftly kill any process with the command string mathing pattern
+```
+
+# Databases
 
 Why not use SQLAlchemy (SA)? http://docs.sqlalchemy.org/en/latest/faq/performance.html#i-m-inserting-400-000-rows-with-the-orm-and-it-s-really-slow
 
@@ -61,13 +75,6 @@ https://github.com/dask/dask/blob/master/setup.py
 
 https://github.com/tartley/colorama/blob/master/setup.py
 
-# Alias
-
-Installing aliases and adding it to your `.bash_profile`
-
-```
-xutil-alias
-```
 
 # Dev
 
