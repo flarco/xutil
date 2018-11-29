@@ -8,7 +8,7 @@ from xutil.database.oracle import OracleConn
 from xutil.database.postgresql import PostgreSQLConn
 from xutil.database.sqlite import SQLiteConn
 from xutil.helpers import get_exception_message, now, log, struct, slog, get_profile, get_db_profile, get_kw
-from xutil.diskio import read_yaml, write_jsonl, read_jsonl, get_path_size
+from xutil.diskio import read_yaml, write_jsonl, read_jsonl, get_path_size, read_file
 
 
 class Spark:
@@ -31,14 +31,12 @@ class Spark:
     # restart = True if version != self.version else restart
     if os.getenv('KLOG'): os.system('bash $KLOG')  # kerb login
 
-    app_name = app_name if app_name else 'Spark_{}_{}_{}'.format(
-      str(version).replace('.', ''), os.getenv('USER'), os.getpid())
-
     # import PySpark
     # spark_home = spark_home if spark_home else findspark.find()
     # findspark.init(spark_home=spark_home)
 
-    os.environ['SPARK_HOME'] = spark_home or os.environ['SPARK_HOME']
+    spark_home = spark_home or os.environ['SPARK_HOME']
+    os.environ['SPARK_HOME'] = spark_home
 
     from pyspark import SparkContext, SQLContext, SparkConf
     from pyspark.sql import SparkSession
@@ -53,7 +51,7 @@ class Spark:
       spark = None
 
     if sc and restart:
-      log('Stopping Spark Instance ({})'.format(sc.appName))
+      log('~Stopping Spark Instance ({})'.format(sc.appName))
       try:
         ps_data = {p.pid: p for p in psutil.process_iter() if p.cmdline()}
         child_pid = ps_data[os.getpid()].children()[0].pid
@@ -104,6 +102,11 @@ class Spark:
       conf[c] = conf_def[c] if c not in conf else conf[c]
 
     # Launch Spark Instance
+    version = self.get_spark_version(spark_home)
+
+    app_name = app_name if app_name else 'Spark_{}_{}_{}'.format(
+      str(version).replace('.', ''), os.getenv('USER'), os.getpid())
+
     if not sc:
       log('Starting Spark Instance ({}) with version {} / {}'.format(
         app_name, version, conf['spark.master']))
@@ -119,6 +122,16 @@ class Spark:
 
   def get_master(self):
     return self.spark.sparkContext.master
+
+  def get_spark_version(self, spark_home):
+    try:
+      line = read_file(spark_home + '/RELEASE', read_lines=True)[0]
+      version = line.split()[1]
+    except Exception as E:
+      log(E)
+      log('-Unable to determine Spark Version.')
+      version = 'x.x'
+    return version
 
   def get_app_name(self):
     return self.spark.sparkContext.appName
