@@ -521,9 +521,9 @@ class DBConn(object):
 
     elif dtype == 'tuple':
       if limit:
-        data = [row for row in _data]
+        data = [tuple(row) for row in _data]
       else:
-        data = [row for row in _data]
+        data = [tuple(row) for row in _data]
 
     elif dtype == 'dataframe':
       if limit:
@@ -932,12 +932,13 @@ def get_conn(db,
 
   use_jdbc = True if (use_jdbc or ('use_jdbc' in db_dict
                                    and db_dict['use_jdbc'])) else use_jdbc
-
+  
   if db in conns and not reconnect:
     if (now() - conns[db].last_connect).total_seconds() / 60 < conn_expire_min:
       return conns[db]
 
   if use_jdbc:
+    log('*USING JDBC for ' + db)
     from .jdbc import JdbcConn
     conn = JdbcConn(db_dict, profile=profile)
 
