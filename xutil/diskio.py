@@ -75,7 +75,7 @@ def read_file(file_path, read_lines=False, mode='r', encoding='utf8'):
   encoding = None if 'b' in mode else encoding
   with open(file_path, mode, encoding=encoding) as stream:
     if read_lines:
-      return stream.readline()
+      return stream.readlines()
     else:
       return stream.read()
 
