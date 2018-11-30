@@ -114,34 +114,39 @@ class JdbcConn(DBConn):
 
     Rec = namedtuple('Columns', headers)
     self._fields = Rec._fields
-    schema, table = self._split_schema_table(table_name)
+    all_rows = []
 
-    def get_rec(r_dict, column_order):
-      if include_schema_table:
-        r_dict['schema'] = schema
-        r_dict['table'] = table
+    table_names = table_name if isinstance(table_name, list) else [table_name]
 
-      r_dict['column_name'] = r_dict['COLUMN_NAME']
-      r_dict['type'] = r_dict['TYPE_NAME']
-      r_dict['nullable'] = r_dict['IS_NULLABLE']
-      r_dict['autoincrement'] = r_dict['IS_AUTOINCREMENT']
-      r_dict['default'] = r_dict['COLUMN_DEF']
-      r_dict['id'] = column_order
+    for table_name in table_names:
+      schema, table = self._split_schema_table(table_name)
 
-      for k in list(r_dict):
-        if k not in headers.split():
-          del r_dict[k]
+      def get_rec(r_dict, column_order):
+        if include_schema_table:
+          r_dict['schema'] = schema
+          r_dict['table'] = table
 
-      if '(' in r_dict['type']:
-        r_dict['type'] = r_dict['type'].split('(')[0]
+        r_dict['column_name'] = r_dict['COLUMN_NAME']
+        r_dict['type'] = r_dict['TYPE_NAME']
+        r_dict['nullable'] = r_dict['IS_NULLABLE']
+        r_dict['autoincrement'] = r_dict['IS_AUTOINCREMENT']
+        r_dict['default'] = r_dict['COLUMN_DEF']
+        r_dict['id'] = column_order
 
-      return Rec(**r_dict)
+        for k in list(r_dict):
+          if k not in headers.split():
+            del r_dict[k]
 
-    rs_rows = rs_to_rows(self.meta.getColumns(catalog, schema, table, None))
+        if '(' in r_dict['type']:
+          r_dict['type'] = r_dict['type'].split('(')[0]
 
-    rows = [get_rec(r._asdict(), i + 1) for i, r in enumerate(rs_rows)]
+        return Rec(**r_dict)
+
+      rs_rows = rs_to_rows(self.meta.getColumns(catalog, schema, table, None))
+
+      all_rows += [get_rec(r._asdict(), i + 1) for i, r in enumerate(rs_rows)]
     self._fields = Rec._fields
-    return rows
+    return all_rows
 
   def get_primary_keys(self, table_name, echo=False):
     "Get PK metadata for table"
