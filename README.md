@@ -9,10 +9,10 @@ This link displayed how to do this back with Youtube.
 # Install
 
 ```
-pip install -U git+git://github.com/flarco/xutil.git
-pip install -U git+git://github.com/flarco/xutil.git#egg=xutil[jdbc] # for JDBC connectivity. Requires JPype1.
-pip install -U git+git://github.com/flarco/xutil.git#egg=xutil[web] # for web scraping. Requires Twisted.
-pip install -U git+git://github.com/flarco/xutil.git#egg=xutil[hive] # for Hive connectivity. Requires SASL libraries.
+pip install -U git+https://github.com/flarco/xutil.git
+pip install -U git+https://github.com/flarco/xutil.git#egg=xutil[jdbc] # for JDBC connectivity. Requires JPype1.
+pip install -U git+https://github.com/flarco/xutil.git#egg=xutil[web] # for web scraping. Requires Twisted.
+pip install -U git+https://github.com/flarco/xutil.git#egg=xutil[hive] # for Hive connectivity. Requires SASL libraries.
 ```
 
 ## Windows

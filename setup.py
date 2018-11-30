@@ -4,8 +4,9 @@ from setuptools import find_packages
 jdbc = ['jaydebeapi']
 hive = [
   "thrift",
-  "sasl", # need sasl.h library
+  "sasl",  # need sasl.h library
   "thrift_sasl",
+  "impyla",
 ]
 web = [
   "python-socketio",
@@ -51,6 +52,7 @@ setup(
     'jdbc': jdbc,  # needs gcc and g++ to be installed
     'hive': hive,
     'web': web,
+    'full': jdbc + hive + web,
   },
   entry_points={
     'console_scripts': [
