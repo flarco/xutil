@@ -652,45 +652,52 @@ class DBConn(object):
 
     Rec = namedtuple('Columns', headers)
     self._fields = Rec._fields
-    schema, table = self._split_schema_table(table_name)
+    all_rows = []
+    
+    table_names = table_name if isinstance(table_name, list) else [table_name]
 
-    def get_rec(r_dict, column_order):
-      if include_schema_table:
-        r_dict['schema'] = schema
-        r_dict['table'] = table
-      r_dict['column_name'] = r_dict['name']
-      r_dict['type'] = str(r_dict['type'])
-      if not native_type:
-        r_dict['type']= r_dict['type'].lower()
-        r_dict['type'] = r_dict['type'].split('(')[0] if '(' in r_dict[
-          'type'] else r_dict['type']
-        native_type_map = self.template('native_type_map')
-        if not r_dict['type'] in native_type_map:
-          raise Exception('Field type "{}" not in native_type_map for {}'.format(r_dict['type'], self.type))
-        r_dict['type'] = native_type_map[r_dict['type']]
-      r_dict['id'] = column_order
+    for table_name in table_names:
+      schema, table = self._split_schema_table(table_name)
 
-      for k in list(r_dict):
-        if k not in headers.split():
-          del r_dict[k]
+      def get_rec(r_dict, column_order):
+        if include_schema_table:
+          r_dict['schema'] = schema
+          r_dict['table'] = table
+        r_dict['column_name'] = r_dict['name']
+        r_dict['type'] = str(r_dict['type'])
+        if not native_type:
+          r_dict['type']= r_dict['type'].lower()
+          r_dict['type'] = r_dict['type'].split('(')[0] if '(' in r_dict[
+            'type'] else r_dict['type']
+          native_type_map = self.template('native_type_map')
+          if not r_dict['type'] in native_type_map:
+            raise Exception('Field type "{}" not in native_type_map for {}'.format(r_dict['type'], self.type))
+          r_dict['type'] = native_type_map[r_dict['type']]
+        r_dict['id'] = column_order
 
-      if '(' in r_dict['type']:
-        r_dict['type'] = r_dict['type'].split('(')[0]
+        for k in list(r_dict):
+          if k not in headers.split():
+            del r_dict[k]
 
-      return Rec(**r_dict)
+        if '(' in r_dict['type']:
+          r_dict['type'] = r_dict['type'].split('(')[0]
 
-    sql_tmpl = self.template('metadata.columns')
-    if sql_tmpl:
-      rows = self.select(sql_tmpl.format(table=table, schema=schema))
-      if hasattr(self, '_std_get_columns'):
-        rows = self._std_get_columns(schema, table, rows)
-    else:
-      self.get_engine(echo=echo)
-      rows = self.engine_inspect.get_columns(table, schema=schema)
+        return Rec(**r_dict)
 
-    rows = [get_rec(r_dict, i + 1) for i, r_dict in enumerate(rows)]
+      sql_tmpl = self.template('metadata.columns')
+      if sql_tmpl:
+        rows = self.select(sql_tmpl.format(table=table, schema=schema))
+        if hasattr(self, '_std_get_columns'):
+          rows = self._std_get_columns(schema, table, rows)
+      else:
+        self.get_engine(echo=echo)
+        rows = self.engine_inspect.get_columns(table, schema=schema)
+
+      all_rows += [get_rec(r_dict, i + 1) for i, r_dict in enumerate(rows)]
+
+    
     self._fields = Rec._fields
-    return rows
+    return all_rows
 
   def get_primary_keys(self, table_name, echo=False):
     "Get PK metadata for table"
