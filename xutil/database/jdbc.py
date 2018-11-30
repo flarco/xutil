@@ -1,6 +1,6 @@
 import os
 from xutil.database.base import DBConn
-from xutil.helpers import get_dir_path, slog
+from xutil.helpers import get_dir_path, log
 from collections import namedtuple
 
 # TODO:
