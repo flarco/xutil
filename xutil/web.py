@@ -462,7 +462,7 @@ class WebApp:
     self.on = self.sio.on
     self.emit = self.sio.emit
 
-  def run(self, port, debug=True, **kwargs):
+  def run(self, port, debug=True, url_suffix='', **kwargs):
     import eventlet, socketio
     import eventlet.wsgi
 
@@ -484,7 +484,7 @@ class WebApp:
     app = socketio.Middleware(self.sio, self.flask_app)
 
     log('*Web Server PID is {}'.format(os.getpid()))
-    log("*URL -> " + self.base_url)
+    log("*URL -> " + self.base_url + url_suffix)
 
     eventlet.wsgi.server(eventlet.listen(('0.0.0.0', self.port)), app)
 
@@ -506,7 +506,7 @@ class WebApp:
       kv = [kv[0], '='.join(kv[1:])]
       key, val = kv
       cookies[key] = val
-    
+
     return cookies
 
   def get_cookie_session_id(self):
