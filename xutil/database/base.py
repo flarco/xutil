@@ -50,6 +50,7 @@ class DBConn(object):
   def __init__(self, conn_dict, profile=None, echo=False):
     "Inititate connection"
     self._cred = struct(conn_dict)
+    self._cred.kwargs = conn_dict.get('kwargs', {})
     self.name = self._cred.get('name', None)
     self.type = self._cred.type
     self.engine = None
@@ -653,7 +654,7 @@ class DBConn(object):
     Rec = namedtuple('Columns', headers)
     self._fields = Rec._fields
     all_rows = []
-    
+
     table_names = table_name if isinstance(table_name, list) else [table_name]
 
     for table_name in table_names:
@@ -695,7 +696,6 @@ class DBConn(object):
 
       all_rows += [get_rec(r_dict, i + 1) for i, r_dict in enumerate(rows)]
 
-    
     self._fields = Rec._fields
     return all_rows
 
@@ -927,7 +927,7 @@ def get_conn(db,
              reconnect=False,
              use_jdbc=False,
              conn_expire_min=10,
-             spark_hive=True) -> DBConn:
+             spark_hive=False) -> DBConn:
   global conns
 
   dbs = dbs if dbs else get_databases()
@@ -939,7 +939,7 @@ def get_conn(db,
 
   use_jdbc = True if (use_jdbc or ('use_jdbc' in db_dict
                                    and db_dict['use_jdbc'])) else use_jdbc
-  
+
   if db in conns and not reconnect:
     if (now() - conns[db].last_connect).total_seconds() / 60 < conn_expire_min:
       return conns[db]
