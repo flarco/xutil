@@ -12,7 +12,7 @@ metadata:
   ddl: show create table {schema}.{table}
 
 analysis:
-  chars: |
+  field_chars: |
     select
       '{schema}' as schema_nm,
       '{table}' as table_nm,
