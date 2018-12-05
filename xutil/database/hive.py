@@ -24,17 +24,24 @@ class HiveConn(DBConn):
 
   def connect(self):
     "Connect / Re-Connect to Database"
-    import pyhs2
-    c = dict2(self._cred)
-    self.connection = pyhs2.connect(
+    c = self._cred
+
+    # import pyhs2
+    # self.connection = pyhs2.connect(
+    #   host=c.host,
+    #   port=c.port,
+    #   authMechanism="KERBEROS",
+    #   password=c.password,
+    #   user=c.user)
+    # self.connection.autocommit = True
+
+    from impala.dbapi import connect
+    self.connection = connect(
       host=c.host,
       port=c.port,
-      authMechanism="KERBEROS",
-      password=c.password,
-      user=c.user)
+      **c.kwargs)
     self.cursor = None
 
-    self.connection.autocommit = True
     self.name = "Hive"
     self.username = c.user
 
@@ -63,10 +70,6 @@ class HiveConn(DBConn):
     "Could implement PyHive?"
     return None
 
-  def get_cursor_fields(self):
-    "Get fields of active Select cursor"
-    fields = [fix_field(f['columnName']) for f in self.cursor.getSchema()]
-    return fields
 
   def get_cursor_metadata(self, schema, table, sample_row=None):
     "Get current cursor column metadata"
@@ -89,50 +92,63 @@ class HiveConn(DBConn):
 
     return data
 
-  def select(self,
-             sql,
-             nt_name='Record',
-             dtype='namedtuple',
-             limit=None,
-             date_fields_=[],
-             echo=True,
-             date_conv=True,
-             date_conv_str=False,
-             log=log):
-    "Select from SQL, return list of namedtuples"
-    data = super(HiveConn, self).select(
-      sql, nt_name, dtype='dataframe', echo=echo)
+  def _do_execute(self, sql, cursor=None):
+    super(HiveConn, self)._do_execute(sql, cursor=cursor)
+    cleanse_f = lambda f: f.split('.')[-1] if '.' in f else f
+    self._fields = [cleanse_f(f) for f in self._fields]
 
-    # Hive returns date fields as text. Not useful.
-    # This is to convert from text to date using ever-efficient dataframes
-    fields = [f['columnName'] for f in self.cursor.getSchema()]
 
-    date_fields = [fix_field(f['columnName']) for f in self.cursor.getSchema() \
-                   if 'DATE' in f['type'] or 'TIME' in f['type']]
+  # def get_cursor_fields(self, cursor=None):
+  #   "Get fields of active Select cursor"
+  #   cursor = cursor if cursor else self.cursor
+  #   fields = [fix_field(f['columnName']) for f in cursor.getSchema()]
+  #   return fields
 
-    if date_conv_str:
-      date_fields = [fix_field(f['columnName']) for f in self.cursor.getSchema() \
-                     if 'DATE' in f['type'] or 'TIME' in f['type'] or 'date' in f['columnName'].lower() \
-                     or f['columnName'].lower().endswith('_dt')]
 
-    date_fields = date_fields + [f for f in date_fields_ if f in fields]
+  # def select(self,
+  #            sql,
+  #            nt_name='Record',
+  #            dtype='namedtuple',
+  #            limit=None,
+  #            date_fields_=[],
+  #            echo=True,
+  #            date_conv=True,
+  #            date_conv_str=False,
+  #            log=log):
+  #   "Select from SQL, return list of namedtuples"
+  #   data = super(HiveConn, self).select(
+  #     sql, nt_name, dtype='dataframe', echo=echo)
 
-    if date_fields and date_conv:
-      if echo: log('>> Attempting to convert date strings to date types.')
-      str_io = StringIO()  # text in memory
-      data.to_csv(str_io, index=False)
-      str_io.seek(0)  # go to beginning of virtual file
-      try:
-        data = read_csvD(str_io, date_cols=list(set(date_fields)))
-        if echo: log('>> Done Converting')
-      except Exception as e:
-        message = get_exception_message().lower()
-        log('ERROR Converting: ' + get_exception_message())
+  #   # Hive returns date fields as text. Not useful.
+  #   # This is to convert from text to date using ever-efficient dataframes
+  #   fields = [f['columnName'] for f in self.cursor.getSchema()]
 
-    if dtype == 'namedtuple':
-      data = df_to_list(data)
+  #   date_fields = [fix_field(f['columnName']) for f in self.cursor.getSchema() \
+  #                  if 'DATE' in f['type'] or 'TIME' in f['type']]
 
-    return data
+  #   if date_conv_str:
+  #     date_fields = [fix_field(f['columnName']) for f in self.cursor.getSchema() \
+  #                    if 'DATE' in f['type'] or 'TIME' in f['type'] or 'date' in f['columnName'].lower() \
+  #                    or f['columnName'].lower().endswith('_dt')]
+
+  #   date_fields = date_fields + [f for f in date_fields_ if f in fields]
+
+  #   if date_fields and date_conv:
+  #     if echo: log('>> Attempting to convert date strings to date types.')
+  #     str_io = StringIO()  # text in memory
+  #     data.to_csv(str_io, index=False)
+  #     str_io.seek(0)  # go to beginning of virtual file
+  #     try:
+  #       data = read_csvD(str_io, date_cols=list(set(date_fields)))
+  #       if echo: log('>> Done Converting')
+  #     except Exception as e:
+  #       message = get_exception_message().lower()
+  #       log('ERROR Converting: ' + get_exception_message())
+
+  #   if dtype == 'namedtuple':
+  #     data = df_to_list(data)
+
+  #   return data
 
   @staticmethod
   def execute_cli(sql,
