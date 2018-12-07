@@ -1,6 +1,6 @@
 import datetime, os, sys, time, psutil, re, socket
 from collections import OrderedDict, namedtuple
-import findspark, socket
+import socket
 
 from xutil.database.base import get_conn
 from xutil.database.hive import HiveConn, Beeline
@@ -30,10 +30,6 @@ class Spark:
 
     # restart = True if version != self.version else restart
     if os.getenv('KLOG'): os.system('bash $KLOG')  # kerb login
-
-    # import PySpark
-    # spark_home = spark_home if spark_home else findspark.find()
-    # findspark.init(spark_home=spark_home)
 
     spark_home = spark_home or os.environ['SPARK_HOME']
     os.environ['SPARK_HOME'] = spark_home

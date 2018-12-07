@@ -13,6 +13,9 @@ web = [
   "eventlet",
   "scrapy"
 ]
+aws = [
+  "PyAthenaJDBC"
+]
 
 setup(
   name='xutil',
@@ -40,19 +43,19 @@ setup(
     "requests",
     "pyspark",
     "hdfs",
-    "findspark",
     "sqlalchemy",
     "halo",
     "prettytable",
     "pyarrow",
     "s3fs",
-    "sqlparse"
+    "sqlparse",
+    "scp"
   ],
   extras_require={
     'jdbc': jdbc,  # needs gcc and g++ to be installed
     'hive': hive,
     'web': web,
-    'full': jdbc + hive + web,
+    'full': jdbc + hive + web + aws,
   },
   entry_points={
     'console_scripts': [

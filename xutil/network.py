@@ -36,21 +36,22 @@ class Server(object):
     self.status = Status(text='', spinner='dots')
     self.sftp = None
 
-  def ssh_connect(self):
+  def connect(self):
     self.connect_tries += 1
+    from scp import SCPClient
 
     try:
-      with Status(text='Connecting to ' + self.ip, spinner='dots'):
-        self.ssh_client.connect(
-          self.ip,
-          self.port,
-          self.username,
-          self.password,
-          timeout=4,
-          pkey=self.key)
-        self.sftp = self.ssh_client.open_sftp()
+      self.ssh_client.connect(
+        self.ip,
+        self.port,
+        self.username,
+        self.password,
+        timeout=4,
+        pkey=self.key)
+      self.sftp = self.ssh_client.open_sftp()
+      self.scp = SCPClient(self.ssh_client.get_transport())
       self.connected = True
-      log("Successful Connection to " + self.name + " (%s)" % self.ip)
+      log("Successful Connection to {} ({}).".format(self.name, self.ip))
 
     except Exception as E:
       log("Failed to connect to {} ({})".format(self.name, self.ip))
@@ -80,7 +81,7 @@ class Server(object):
 
     return self.last_output
 
-  def sftp_copy_from(self, remote_filepath, local_filepath):
+  def sftp_download(self, remote_filepath, local_filepath, use_scp=True):
     if (not self.test_connection): self.ssh_connect()
     # copy file from remote server object to local path
     log("Downloading from '" + remote_filepath + "' to '" + local_filepath +
@@ -88,23 +89,29 @@ class Server(object):
     try:
       self.status.start()
       self.last_stat = None
-      self.sftp.get(
-        remote_filepath, local_filepath, callback=self.transfer_progress)
+      if use_scp:
+        self.scp.get(remote_filepath, local_filepath)
+      else:
+        self.sftp.get(
+          remote_filepath, local_filepath, callback=self.transfer_progress)
       self.status.stop()
     except Exception as E:
       log('remote_filepath: {}:{}'.format(self.name, remote_filepath))
       log('local_filepath: {}'.format(local_filepath))
       log(E)
 
-  def sftp_copy_to(self, local_filepath, remote_filepath):
+  def sftp_upload(self, local_filepath, remote_filepath, use_scp=True):
     if (not self.test_connection): self.ssh_connect()
     # copy file from local path to remote server object
     log("Uploading from '" + local_filepath + "' to '" + remote_filepath + "'")
     try:
       self.status.start()
       self.last_stat = None
-      self.sftp.put(
-        local_filepath, remote_filepath, callback=self.transfer_progress)
+      if use_scp:
+        self.scp.put(local_filepath, remote_filepath)
+      else:
+        self.sftp.put(
+          local_filepath, remote_filepath, callback=self.transfer_progress)
       self.status.stop()
     except Exception as E:
       log('remote_filepath: {}:{}'.format(self.name, remote_filepath))
