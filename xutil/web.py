@@ -496,8 +496,8 @@ class WebApp:
     cookies = {}
     headers = sio_environ.get('headers_raw', None)
     cookies_raw = [h[1] for h in headers if h[0] == 'Cookie']
-    if not (headers or cookies_raw):
-      log('~~Headers or Cookies not found.')
+    if not (headers and cookies_raw):
+      log('~~Headers and/or Cookies not found.')
       return cookies
 
     cookies_raw = cookies_raw[0]
