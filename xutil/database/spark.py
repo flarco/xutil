@@ -88,7 +88,8 @@ class Spark:
 
     # set extraClassPath
     conf_def["spark.driver.extraClassPath"] = self._get_jar_paths(profile)
-    if 'SPARK_CLASSPATH' in os.environ:
+    if 'SPARK_CLASSPATH' in os.environ and os.environ['SPARK_CLASSPATH']:
+      conf_def["spark.driver.extraClassPath"] = conf_def["spark.driver.extraClassPath"] + ':' + os.environ['SPARK_CLASSPATH']
       del os.environ['SPARK_CLASSPATH']
 
     if master: conf['spark.master'] = master
