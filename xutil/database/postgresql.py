@@ -213,7 +213,7 @@ class PostgreSQLConn(DBConn):
       cred.password, cred.sslmode)
 
     cred = struct(self._cred) if isinstance(self._cred, dict) else None
-    cred.sslmode = cred.sslmode if 'sslmode' in _cred else 'disable'
+    cred.sslmode = cred.sslmode if 'sslmode' in cred else 'disable'
     conn_str = get_conn_str(cred) if cred else self._cred
     self.connection = psycopg2.connect(conn_str)
     self.cursor = None
