@@ -7,10 +7,7 @@ HDFS
 import datetime
 import socket
 import sys
-from .helpers import (log, slog, elog, get_exception_message, now)
-
-import halo
-Status = halo.Halo
+from xutil.helpers import (log, get_exception_message, now)
 
 
 class Server(object):
@@ -33,7 +30,6 @@ class Server(object):
 
     self.ssh_client = paramiko.SSHClient()
     self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    self.status = Status(text='', spinner='dots')
     self.sftp = None
 
   def connect(self):
@@ -87,14 +83,12 @@ class Server(object):
     log("Downloading from '" + remote_filepath + "' to '" + local_filepath +
         "'")
     try:
-      self.status.start()
       self.last_stat = None
       if use_scp:
         self.scp.get(remote_filepath, local_filepath)
       else:
         self.sftp.get(
           remote_filepath, local_filepath, callback=self.transfer_progress)
-      self.status.stop()
     except Exception as E:
       log('remote_filepath: {}:{}'.format(self.name, remote_filepath))
       log('local_filepath: {}'.format(local_filepath))
@@ -105,14 +99,12 @@ class Server(object):
     # copy file from local path to remote server object
     log("Uploading from '" + local_filepath + "' to '" + remote_filepath + "'")
     try:
-      self.status.start()
       self.last_stat = None
       if use_scp:
         self.scp.put(local_filepath, remote_filepath)
       else:
         self.sftp.put(
           local_filepath, remote_filepath, callback=self.transfer_progress)
-      self.status.stop()
     except Exception as E:
       log('remote_filepath: {}:{}'.format(self.name, remote_filepath))
       log('local_filepath: {}'.format(local_filepath))
@@ -149,8 +141,8 @@ class Server(object):
       total = divide(total, 1024**1)
       unit = 'KB'
       rate = '{} {} / sec'.format(divide(rate, 1024**1), unit)
-    self.status.text = '{}% Complete: {} / {} {} @ {}'.format(
-      prct, transferred, total, unit, rate)
+    log('+{}% Complete: {} / {} {} @ {}'.format(
+      prct, transferred, total, unit, rate))
 
   def test_connection(self):
     stdout = self.ssh_client.exec_command('ls')

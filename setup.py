@@ -44,7 +44,6 @@ setup(
     "pyspark",
     "hdfs",
     "sqlalchemy",
-    "halo",
     "prettytable",
     "pyarrow",
     "s3fs",
