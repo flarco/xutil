@@ -207,7 +207,6 @@ class PostgreSQLConn(DBConn):
   def connect(self):
     "Connect / Re-Connect to Database"
     import psycopg2
-    sslmode = cred.sslmode if 'sslmode' in self._cred else 'allow'
     get_conn_str = lambda cred: "dbname='{}' user='{}' host='{}' port={} password='{}' sslmode='{}'".format(
       cred.database, cred.user,
       cred.host, cred.port,
