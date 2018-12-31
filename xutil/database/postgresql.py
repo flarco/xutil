@@ -191,12 +191,13 @@ class PostgreSQLConn(DBConn):
   def create_engine(self, conn_str=None, echo=False):
     import sqlalchemy
     if not conn_str:
-      conn_str = ('postgresql://{user}:{passw}@{host}:{port}/{db}'.format(
+      conn_str = ('postgresql://{user}:{passw}@{host}:{port}/{db}?sslmode={sslmode}'.format(
         user=self._cred.user,
         passw=self._cred.password,
         host=self._cred.host,
         port=self._cred.port,
         db=self._cred.database,
+        sslmode=self._cred.sslmode,
       ))
 
     self.engine = sqlalchemy.create_engine(conn_str, echo=echo)
@@ -206,12 +207,14 @@ class PostgreSQLConn(DBConn):
   def connect(self):
     "Connect / Re-Connect to Database"
     import psycopg2
-    get_conn_str = lambda cred: "dbname='{}' user='{}' host='{}' port={} password='{}'".format(
+    sslmode = cred.sslmode if 'sslmode' in self._cred else 'allow'
+    get_conn_str = lambda cred: "dbname='{}' user='{}' host='{}' port={} password='{}' sslmode='{}'".format(
       cred.database, cred.user,
       cred.host, cred.port,
-      cred.password)
+      cred.password, cred.sslmode)
 
     cred = struct(self._cred) if isinstance(self._cred, dict) else None
+    cred.sslmode = cred.sslmode if 'sslmode' in _cred else 'disable'
     conn_str = get_conn_str(cred) if cred else self._cred
     self.connection = psycopg2.connect(conn_str)
     self.cursor = None
