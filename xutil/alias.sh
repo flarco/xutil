@@ -3,6 +3,16 @@ export PROFILE_YAML=~/profile.yaml
 # Useful alias
 alias psu="ps aux | grep $USER"
 alias pse="ps -eo pid,comm,cmd,start,etime"
+alias py="python"
+
+# Circus
+alias tail-circus='tail -f /tmp/logs_circus/*.log'
+alias cctl=circusctl
+alias cstart='circusd ~/circus.ini'
+alias crest='cctl restart'
+alias cstop='cctl stop'
+alias cquit='cctl quit'
+alias creload='cctl reloadconfig'
 
 # HDFS
 alias dfs='hdfs dfs'

@@ -26,9 +26,9 @@ db_to_db(
   src_table='HR.EMPLOYEES',
   tgt_db='SPARK_HIVE',
   tgt_table='default.HR_EMPLOYEES',
-  partition_col="MANAGER_ID",
-  out_folder='/tmp',
-  hdfs_folder='tmp',
+  # partition_col="MANAGER_ID",
+  # out_folder='/tmp',
+  # hdfs_folder='tmp',
   partitions=5)
 
 ```
