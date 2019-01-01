@@ -1,4 +1,4 @@
-import datetime, csv, time, pandas
+import datetime, csv, time, pandas, os
 from xutil.database.base import DBConn
 from xutil.helpers import (get_exception_message, now, log, struct,
                            is_gen_func, isnamedtupleinstance, get_dir_path)
@@ -337,7 +337,7 @@ class PostgreSQLConn(DBConn):
       pk_fields=pk_fields,
       commit=commit,
       echo=echo,
-      sql_tmpl='insert_ignore',
+      sql_tmpl='core.insert_ignore',
       temp_table=temp_table)
 
   def replace(self,
@@ -346,7 +346,7 @@ class PostgreSQLConn(DBConn):
               pk_fields=None,
               commit=True,
               echo=True,
-              sql_tmpl='replace',
+              sql_tmpl='core.replace',
               temp_table=None):
     "Upsert data into database"
     s_t = datetime.datetime.now()
@@ -362,7 +362,7 @@ class PostgreSQLConn(DBConn):
               for i in range(len(fields))] if mode == 'namedtuple' else fields
 
     pk_fields_set = set(pk_fields)
-    sql_tmpl = sql_tmpl + '_temp' if temp_table else sql_tmpl
+    table = table + '_temp' if temp_table else table
     sql = self.template(sql_tmpl).format(
       table=table,
       set_fields=',\n'.join([
@@ -451,7 +451,7 @@ class PostgreSQLConn(DBConn):
 
     # self.connection.autocommit = False
     cursor = self.get_cursor()
-    sql = self.template('insert').format(
+    sql = self.template('core.insert').format(
       table=table,
       names=', \n'.join([self._fix_f_name(f) for f in fields]),
       values=', \n'.join(['%s'] * len(values)),
