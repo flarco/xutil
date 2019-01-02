@@ -4,6 +4,7 @@ export PROFILE_YAML=~/profile.yaml
 alias psu="ps aux | grep $USER"
 alias pse="ps -eo pid,comm,cmd,start,etime"
 alias py="python"
+alias xutil-update='pip install -U git+https://github.com/flarco/xutil.git'
 
 # Circus
 alias tail-circus='tail -f /tmp/logs_circus/*.log'
