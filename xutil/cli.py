@@ -59,7 +59,7 @@ def alias_cli():
 
   src_path = get_dir_path() + '/alias.sh'
   dst_path = get_home_path() + '/.xutil.alias.sh'
-  bash_profile_path = get_home_path() + '/.bash_profile'
+  bash_profile_path = get_home_path() + '/.bashrc'
 
   # log('src_path -> ' + src_path)
   # log('dst_path -> ' + dst_path)
