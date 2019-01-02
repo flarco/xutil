@@ -68,7 +68,7 @@ def alias_cli():
   bash_prof_text = read_file(bash_profile_path)
 
   if not dst_path in bash_prof_text:
-    bash_prof_text = '{}\n\n. {}'.format(bash_prof_text, dst_path)
+    bash_prof_text = '{}\n\n. {}\n'.format(bash_prof_text, dst_path)
     write_file(bash_profile_path, bash_prof_text)
     log('+Updated ' + bash_profile_path)
 
