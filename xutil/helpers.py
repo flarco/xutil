@@ -3,7 +3,7 @@ import datetime, time
 import json, atexit
 import os, signal
 import re, traceback
-import sys, socket
+import sys, socket, psutil
 from collections import namedtuple, OrderedDict
 from decimal import Decimal
 from pathlib import Path
@@ -49,6 +49,7 @@ file_exists = lambda p: Path(p).exists()
 kill_pid = lambda pid: os.kill(pid, signal.SIGTERM)
 get_pid_path = lambda name=__file__, folder=get_home_path(): '{}/.{}.PID'.format(folder, name)
 make_rec = lambda **d: namedtuple('Rec', d.keys())(**d)
+set_nice = lambda n: psutil.Process(os.getpid()).nice(n)
 
 elog = lambda text, show_time=True: log(text, color='red', show_time=show_time)
 slog = lambda text, show_time=True: log(text, color='green', show_time=show_time)
