@@ -893,7 +893,7 @@ class EtlCmdParser(object):
     if args.src_sql_file:
       src_sql = read_file(args.src_sql_file)
 
-    etl_db_to_db(
+    db_to_db(
       src_db=args.src_db,
       src_table=args.src_table,
       src_sql=src_sql,
@@ -944,7 +944,7 @@ class EtlCmdParser(object):
       parser.print_help()
       sys.exit(1)
 
-    etl_ff_to_db(
+    ff_to_db(
       src_ff=args.src_ff,
       src_deli=args.delim if args.delim else ',',
       src_timestamp_fmt=args.datetime_format if args.datetime_format else None,
@@ -998,7 +998,7 @@ class EtlCmdParser(object):
     if args.src_sql_file:
       src_sql = read_file(args.src_sql_file)
 
-    etl_db_to_ff(
+    db_to_ff(
       src_db=args.src_db,
       src_table=args.src_table if args.src_table else None,
       src_sql=args.src_sql if args.src_sql else None,
