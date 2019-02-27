@@ -1020,7 +1020,7 @@ class SqlX:
     return self.pk_fields
 
   def insert(self, data):
-    self.conn.insert(self.table_obj, data)
+    return self.conn.insert(self.table_obj, data)
 
   def update(self, data, pk_fields=None):
     if not pk_fields:
