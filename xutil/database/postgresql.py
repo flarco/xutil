@@ -487,8 +487,10 @@ class PostgreSQLConn(DBConn):
             batch_f, delimiter=deli, quoting=csv.QUOTE_MINIMAL)
 
       batch_f.close()
-      cursor.copy_from(
-        open(temp_file_path, 'r'), table, columns=fields, sep=deli)
+      cols_str = ', '.join(fields)
+      copy_sql = '''COPY {} ({}) FROM stdin WITH CSV DELIMITER '|' QUOTE '"' ESCAPE '"' '''.format(table, cols_str)
+      cursor.copy_expert(copy_sql, open(temp_file_path, 'r'))
+      # cursor.copy_from(open(temp_file_path, 'r'), table, columns=fields, sep=deli)
       self.connection.commit()
       os.remove(temp_file_path)
 
