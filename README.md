@@ -108,9 +108,3 @@ pip install -e /path/to/xutil
   - insert
   - upsert (update or insert)
 
-* Finish DB libs:
-  -X Spark
-  -X SQLServer
-  - SQlite
-    -X JDBC (ability to use SQL server from Linux)
-    -X Spark JDBC
