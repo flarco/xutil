@@ -1,13 +1,14 @@
 import datetime, os, sys, time, psutil, re, socket
 from collections import OrderedDict, namedtuple
 import socket
+from pathlib import Path
 
 from xutil.database.base import get_conn
 from xutil.database.hive import HiveConn, Beeline
 from xutil.database.oracle import OracleConn
 from xutil.database.postgresql import PostgreSQLConn
 from xutil.database.sqlite import SQLiteConn
-from xutil.helpers import get_exception_message, now, log, struct, slog, get_profile, get_db_profile, get_kw
+from xutil.helpers import get_exception_message, now, log, struct, slog, get_profile, get_db_profile, get_kw, get_home_path
 from xutil.diskio import read_yaml, write_jsonl, read_jsonl, get_path_size, read_file
 
 
@@ -20,7 +21,6 @@ class Spark:
                app_name=None,
                master=None,
                conf={},
-               version=None,
                spark_home=None,
                restart=False,
                hive_enabled=False,
@@ -30,9 +30,7 @@ class Spark:
 
     # restart = True if version != self.version else restart
     if os.getenv('KLOG'): os.system('bash $KLOG')  # kerb login
-
-    spark_home = spark_home or os.environ['SPARK_HOME']
-    os.environ['SPARK_HOME'] = spark_home
+    spark_home = self.set_sparkenv(spark_home)
 
     from pyspark import SparkContext, SQLContext, SparkConf
     from pyspark.sql import SparkSession
@@ -116,6 +114,45 @@ class Spark:
     self.uiWebUrl = sc.uiWebUrl
     self.local_uiWebUrl = 'http://{}:{}'.format(socket.gethostname(), sc.uiWebUrl.split(':')[-1])
     self.spark = spark
+
+
+  @classmethod
+  def set_sparkenv(cls, spark_home=None):
+    import urllib.request, subprocess
+    URL = 'http://apache.claz.org/spark/spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz'
+    spark_home = spark_home or os.environ.get('SPARK_HOME', None)
+
+    if not spark_home:
+      # download Spark binary
+      ans = input(
+        'SPARK_HOME is not found. Would you like download and install in your home folder? (Y or N): '
+      )
+      if ans.lower() == 'y':
+        archive_path = get_home_path() + '/' + URL.split('/')[-1]
+        if Path(archive_path).exists():
+          log('+Archive "{}" already downloaded.'.format(archive_path))
+        else:
+          log('+Downloading "{}" to "{}"'.format(URL, archive_path))
+          urllib.request.urlretrieve(URL, archive_path)
+          os.system('cd {} && tar -xf {}'.format(get_home_path(),
+                                                 archive_path))
+          pyspark_home = archive_path.replace('.tgz', '/python')
+          subprocess.call(
+            ['pip', 'install', '--target=' + pyspark_home, 'py4j'])
+        spark_home = archive_path.replace('.tgz', '')
+
+    os.environ['SPARK_HOME'] = spark_home
+
+    if not Path(spark_home).exists():
+      raise Exception('SPARK_HOME="{}" does not exists.'.format(spark_home))
+
+    # add pyspark of SPARK_HOME to path
+    sys.path.append(spark_home + '/python')
+
+    log('-Using SPARK_HOME=' + spark_home)
+
+    return spark_home
+
 
   def get_master(self):
     return self.spark.sparkContext.master
