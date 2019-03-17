@@ -84,7 +84,7 @@ pip install -e /path/to/xutil
 
 ## Release
 
-- Update version and `download_url` in [setup.py](./setup.py).
+- Update version in [setup.py](./setup.py).
 - Draft new release on Github: <https://github.com/flarco/xutil/releases/new>
 
 ```
