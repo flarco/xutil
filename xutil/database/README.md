@@ -5,6 +5,20 @@
 Your database profile / credentials needs to be set up at `~/profile.yaml` or env var `PROFILE_YAML`.
 Run command `xutil-create-profile` to create from template.
 
+## Example Entry
+
+```yaml
+PG1:
+  name: PG1
+  host: pg1
+  database: db1
+  port: 5432
+  user: user
+  password: password
+  type: postgresql
+  url: "jdbc:postgresql://host:port/database?&ssl=false"
+```
+
 ## SQL Server
 
 ### Using Windows Cred from Linux
