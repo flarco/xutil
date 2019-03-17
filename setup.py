@@ -25,7 +25,7 @@ setup(
   author='Fritz Larco',
   author_email='flarco@live.com',
   url='https://github.com/flarco/xutil',
-  download_url='https://github.com/flarco/xutil.git',
+  download_url='https://github.com/flarco/xutil/archive/0.0.1.tar.gz',
   keywords=['xutil'],
   packages=find_packages(exclude=['tests']),
   include_package_data=True,
