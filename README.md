@@ -93,30 +93,3 @@ cd xutil
 python setup.py sdist
 twine upload dist/*
 ```
-
-# Todo
-
-- Use Spark JDBC? For what?
-
-  - ETL:
-    - db to db: need to stream from source instead of holding in memory (which Sparkd does). Holding in memory large tables fails. Best to stream.
-      - for RDBMS to hive: stream to multi csvs. gzip them and move them to HDFS. load into spark. load into Hive.
-      - for RDBMS to RDBMS: use Python native ? or load into multi CSVs and bulk load...
-      - for HIVE to RDBMS: take advatange of HDFS and use Spark SQL to JDBC into table in parallel.
-    - db to ff: stream to multi csvs
-    - ff to db: load into multi CSVs and bulk load...
-    - csv split
-
-- build database tests for:
-
-  - select
-  - execute
-  - execute_multi
-  - stream
-  - all analysis
-
-- Add DB functions:
-
-  - insert
-  - upsert (update or insert)
-
