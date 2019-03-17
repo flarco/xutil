@@ -82,6 +82,18 @@ https://github.com/tartley/colorama/blob/master/setup.py
 pip install -e /path/to/xutil
 ```
 
+## Release
+
+- Update version and `download_url` in [setup.py](./setup.py).
+- Draft new release on Github: <https://github.com/flarco/xutil/releases/new>
+
+```
+git clone https://github.com/flarco/xutil.git
+cd xutil
+python setup.py sdist
+twine upload dist/*
+```
+
 # Todo
 
 - Use Spark JDBC? For what?
