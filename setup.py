@@ -68,9 +68,8 @@ setup(
     ],
   },
   classifiers=[
-    'Programming Language :: Python :: 2',
     'Programming Language :: Python :: 3', 'Intended Audience :: Developers',
     'Intended Audience :: Education', 'Intended Audience :: Science/Research',
-    'Operating System :: Windows', 'Operating System :: MacOS',
+    'Operating System :: MacOS',
     'Operating System :: Unix', 'Topic :: Utilities'
   ])
