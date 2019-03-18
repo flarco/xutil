@@ -343,7 +343,7 @@ from xutil.diskio import read_file, write_file, read_yaml, write_yaml
 
 def save_profile(data):
   profl_path = os.getenv('PROFILE_YAML', get_home_path() + '/profile.yaml')
-  profl_path = get_home_path() + '/profile.new.yaml'
+  # profl_path = get_home_path() + '/profile.new.yaml'
   write_yaml(profl_path, data)
 
 

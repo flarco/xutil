@@ -71,6 +71,26 @@ databases:
     spark_home: /path/spark-2.2.0-bin-hadoop2.7
     type: spark
 
+  PG_TEST:
+    name: PG_TEST
+    host: localhost
+    database: test_db
+    port: 35432
+    user: user
+    password: password
+    type: postgresql
+    url: "jdbc:postgresql://localhost:35432/test_db?&ssl=false"
+  
+  ORCL_TEST:
+    name: ORCL_TEST
+    host: localhost
+    port: 31521
+    sid: xe
+    user: system
+    password: oracle
+    type: oracle
+    url: "jdbc:oracle:thin:@//localhost:31521//xe"
+
   TESTS:
     EDW1:
       object: SCHEMA1.OBJECT1

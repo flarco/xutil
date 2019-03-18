@@ -1,5 +1,6 @@
 from distutils.core import setup
 from setuptools import find_packages
+import os
 
 jdbc = ['jaydebeapi']
 hive = [
@@ -17,7 +18,7 @@ aws = [
   "PyAthenaJDBC"
 ]
 
-version = '0.0.2'
+version = '0.0.3'
 
 setup(
   name='xutil',
@@ -27,10 +28,14 @@ setup(
   author='Fritz Larco',
   author_email='flarco@live.com',
   url='https://github.com/flarco/xutil',
-  download_url='https://github.com/flarco/xutil/archive/{}.tar.gz'.format(version),
+  download_url='https://github.com/flarco/xutil/archive/{}.tar.gz'.format(
+    version),
   keywords=['xutil'],
   packages=find_packages(exclude=['tests']),
   include_package_data=True,
+  test_suite='xutil.tests',
+  long_description=open(os.path.join(os.path.dirname(__file__),
+                                     'README.rst')).read(),
   install_requires=[
     "verboselogs", "coloredlogs", "psutil", "jmespath", "jsonlines",
     "paramiko", "redis", "cx_Oracle", "psycopg2", "pymongo", "requests",

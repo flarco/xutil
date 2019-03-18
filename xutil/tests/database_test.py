@@ -1,171 +1,120 @@
-# from parent folder, run 'python -m xutil.tests.database_test'
-# coverage run  -m xutil.tests.database_test
-# coverage report
-# coverage html
+# from parent folder, run 'python -m xutil.tests.helpers_test'
+import unittest, os
+from path import Path
+from unittest.mock import patch
 
-import sys
-from unittest import TestCase, main
-from copy import deepcopy
+from xutil.helpers import *
 from xutil.database.base import get_conn
-from xutil.helpers import get_profile, get_databases, elog
-from xutil.diskio import read_yaml
 
-orig_stdout = sys.stdout
-orig_stderr = sys.stderr
+import docker  # https://github.com/docker/docker-py
 
-
-def test_join_match():
-  t1 = 'bank.mint_categories'
-  t2 = 'bank.mint_categories'
-  t1_field = 'category, sub_category'
-  t2_field = 'category, sub_category'
-  conn = get_conn('PG_XENIAL')
-  rows = conn.analyze_join_match(t1, t2, t1_field, t2_field, as_sql=False)
-  print(rows)
+from collections import namedtuple
 
 
-class DatabaseTest(TestCase):
-  debug = True
+class BaseDBTest(unittest.TestCase):
+  timeout = 40
 
+  @classmethod
+  def setUpClass(cls):
+    cls.client = docker.from_env()
+    cls.container = cls.client.containers.run(**cls.cntnr_params)
+    log('-Waiting for {} to start...'.format(cls.db_name))
 
-def make_test_functions(db_name, schema, obj, pre_sql=None):
-  def setUp(self):
-    self.conn = get_conn(db_name, echo=False)
-    if pre_sql:
-      self.conn.execute(pre_sql)
+    st = now()
+    os.environ['PROFILE_YAML'] = get_dir_path(
+      __file__) + '/../database/templates/profile.yaml'
+    cls.conn = None
 
-  def test_get_schemas(self):
-    rows = self.conn.get_schemas()
-    self.assertGreater(len(rows), 0, msg='Failed to obtain schemas.')
-
-  def test_get_objects(self):
-    rows = self.conn.get_objects(schema=schema)
-    self.assertGreater(
-      len(rows), 0, msg='Failed to obtain objects for "{}".'.format(schema))
-
-  def test_get_columns(self):
-    obj_combo = schema + '.' + obj
-    rows = self.conn.get_columns(obj=obj_combo)
-    self.assertGreater(
-      len(rows), 0, msg='Failed to obtain columns for "{}".'.format(obj_combo))
-
-  def test_get_primary_keys(self):
-    obj_combo = schema + '.' + obj
-    rows = self.conn.get_primary_keys(obj=obj_combo)
-    self.assertGreater(
-      len(rows), 0, msg='Failed to obtain PKs for "{}".'.format(obj_combo))
-
-  def test_get_ddl(self):
-    obj_combo = schema + '.' + obj
-    rows = self.conn.get_ddl(obj=obj_combo)
-    self.assertGreater(
-      len(rows), 0, msg='Failed to obtain ddl for "{}".'.format(obj_combo))
-
-  def test_analyze_fields(self):
-    obj_combo = schema + '.' + obj
-    for analyis_name in self.conn.template_dict['analysis']:
-      if not (analyis_name.startswith('field')
-              or analyis_name.startswith('distro')):
-        continue
-
-      kwargs = {}
-      if analyis_name in ('distro_field_group', 'field_stat_group'):
-        kwargs['group_expr'] = '1'
-
-      if analyis_name in ('distro_field', 'distro_field_group'):
-        field_rows = self.conn.get_columns(obj=obj_combo)
-        kwargs['fields'] = [field_rows[0].column_name]
-
-      if analyis_name in ('distro_field_date', 'distro_field_date_wide'):
-        field_rows = self.conn.get_columns(obj=obj_combo)
-        date_fields = [
-          f for f in field_rows
-          if 'date' in f.type.lower() or 'time' in f.type.lower()
-        ]
-        if not date_fields:
-          continue
-        else:
-          field = date_fields[0].column_name
-
-        kwargs['fields'] = [field]
-        if analyis_name in ('distro_field_date_wide'):
-          kwargs['fields'] = [f.column_name for f in field_rows]
-          kwargs['date_field'] = field
-          cnt_tmpl = 'sum(case when {field} is null then 0 else 1 end) as {field}_cnt'
-          kwargs['cnt_fields_sql'] = ', '.join(
-            [cnt_tmpl.format(field=f) for f in kwargs['fields']]),
-
-      rows = self.conn.analyze_fields(analyis_name, obj=obj_combo, **kwargs)
-      self.assertGreater(
-        len(rows),
-        0,
-        msg='Failed to run analysis "{}" for "{}".'.format(
-          analyis_name, obj_combo))
-
-  def test_analyze_tables(self):
-    obj_combo = schema + '.' + obj
-    for analyis_name in self.conn.template_dict['analysis']:
-      err_msg = Exception('Failed to run analysis "{}" for "{}".'.format(
-        analyis_name, obj_combo))
-      if not analyis_name.startswith('table'):
-        continue
-
-      kwargs = {}
-      if analyis_name in ('table_join_match'):
-        field_rows = self.conn.get_columns(obj=obj_combo)
-        field = field_rows[0].column_name
-        kwargs['t1'] = obj_combo
-        kwargs['t2'] = obj_combo
-        kwargs['t1_field'] = 't1.{0}'.format(field)
-        kwargs['t1_fields1'] = field
-        kwargs['t1_filter'] = ''
-        kwargs['t2_field'] = 't2.{0}'.format(field)
-        kwargs['t2_fields1'] = field
-        kwargs['t2_filter'] = ''
-        kwargs['conds'] = 't1.{0} = t2.{0}'.format(field)
-
+    while 1:
+      time.sleep(1)
       try:
-        rows = self.conn.analyze_tables(
-          analyis_name, tables=[obj_combo], **kwargs)
+        cls.conn = get_conn(cls.db_name)
+        break
       except Exception as E:
-        log(err_msg)
-        raise E
-      self.assertGreater(len(rows), 0, msg=err_msg)
+        if tdelta_seconds(now(), st) > cls.timeout:
+          cls.container.kill()
+          raise E
 
-  return dict(
-    setUp=setUp,
-    test_get_schemas=test_get_schemas,
-    test_get_objects=test_get_objects,
-    test_get_columns=test_get_columns,
-    # test_get_primary_keys=test_get_primary_keys,
-    test_get_ddl=test_get_ddl,
-    test_analyze_fields=test_analyze_fields,
-    test_analyze_tables=test_analyze_tables,
+  @classmethod
+  def tearDownClass(cls):
+    cls.container.kill()
+
+
+class TestPostGres(BaseDBTest):
+  db_name = 'PG_TEST'
+  cntnr_params = dict(
+    image="postgres:9.6",
+    detach=True,
+    remove=True,
+    ports={5432: 35432},
+    environment={
+      'POSTGRES_DB': "test_db",
+      'POSTGRES_USER': "user",
+      'POSTGRES_PASSWORD': "password",
+    },
   )
 
 
-def test_lineage():
-  from xutil.database.base import get_sql_sources
-  from xutil.diskio import read_file
-  from pprint import pprint
 
-  sql = read_file(r'C:\__\Temp\test.sql')
-  sources = get_sql_sources(sql)
-  pprint(sources)
+  def test_load_data(self):
+
+    Row = namedtuple('Row', 'name state time comment')
+    test_data = [
+      Row('Fritz', 'Florida', epoch(), 'some\ncomment\nwith new line'),
+      Row('James', 'California', epoch(),
+          '''comment\twith\n comma, 'tab' and "quotes" ''')
+    ]
+    field_types = dict(
+      name=('string', 0, 100),
+      state=('string', 0, 100),
+      time=('integer', 0, epoch()),
+      comment=('string', 0, 100),
+    )
+    self.conn.create_table('test_table', field_types)
+    count = self.conn.insert('test_table', test_data)
+    self.assertEqual(count, len(test_data))
+
+    fields, rows = self.conn.execute(
+      'select * from test_table', dtype='tuple')
+    self.assertEqual([tuple(r) for r in test_data], rows)
+    self.assertEqual(fields, list(Row._fields))
+
+
+class TestOracle(BaseDBTest):
+
+  db_name = 'ORCL_TEST'
+  cntnr_params = dict(
+    image="flarco/oracle-xe-11g:v1",
+    detach=True,
+    remove=True,
+    ports={1521: 31521},
+  )
+
+
+
+  def test_load_data(self):
+
+    Row = namedtuple('Row', 'name_ state_ time_ comment_')
+    test_data = [
+      Row('Fritz', 'Florida', epoch(), 'some\ncomment\nwith new line'),
+      Row('James', 'California', epoch(),
+          '''comment\twith\n comma, 'tab' and "quotes" ''')
+    ]
+    field_types = dict(
+      name_=('string', 500, None),
+      state_=('string', 500, None),
+      time_=('integer', 15, None),
+      comment_=('string', 500, None),
+    )
+    self.conn.create_table('test_table', field_types)
+    count = self.conn.insert('test_table', test_data)
+    self.assertEqual(count, len(test_data))
+
+    fields, rows = self.conn.execute(
+      'select * from test_table', dtype='tuple')
+    self.assertEqual([tuple(r) for r in test_data], rows)
+    self.assertEqual(fields, list(Row._fields))
 
 
 if __name__ == '__main__':
-  test_lineage()
-  sys.exit(0)
-
-  dbs = get_databases()
-  for db_name in dbs['TESTS']:
-    schema, obj = dbs['TESTS'][db_name]['object'].split('.')
-    pre_sql = dbs['TESTS'][db_name]['pre_sql'] if 'pre_sql' in dbs['TESTS'][
-      db_name] else None
-    class_name = 'DbTest_' + db_name
-    globals()[class_name] = type(
-      class_name, (DatabaseTest, ),
-      make_test_functions(db_name, schema, obj, pre_sql))
-
-  main(verbosity=2)
+  unittest.main()
