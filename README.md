@@ -88,5 +88,5 @@ git clone https://github.com/flarco/xutil.git
 cd xutil
 m2r --overwrite README.md
 python setup.py sdist
-twine upload dist/*
+twine upload --skip-existing dist/*
 ```
