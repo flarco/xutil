@@ -411,7 +411,7 @@ class State():
     >>> from xutil.helpers import State, now
     >>> state = State()  # will create JSON file or load if exists
     >>> state.put(name='Mark', updated=now())
-    >>> state.data['updated'] = now()
+    >>> state.data['name'] = 'Derrick'  # overwrite 'Mark'
   """
 
   __checkpoint = 5  # auto-save every update count
