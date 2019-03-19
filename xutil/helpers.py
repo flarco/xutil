@@ -416,10 +416,11 @@ class State():
 
   __checkpoint = 5  # auto-save every update count
 
-  def __init__(self, name=None, folder=None):
+  def __init__(self, name=None):
     self._name = name if name else get_file_name(__file__)
-    self.__folder = folder if folder else get_dir_path()
-    self._path = self.__folder + '/{}.state'.format(self._name)
+    self._path = name if '/' in name or '\\' in name else '{}/{}.state'.format(
+      get_dir_path(), self._name)
+
     self.__chkpnt_cnt = 0
     self.__deleted = False
 
