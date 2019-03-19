@@ -45,6 +45,7 @@ get_kw = lambda k, deflt, kwargs: kwargs[k] if k in kwargs else deflt
 get_script_path = lambda: os.path.dirname(os.path.realpath(sys.argv[0]))
 get_dir_path = lambda f=__file__: os.path.dirname(f)
 get_home_path = lambda: os.path.expanduser("~")
+get_file_name = lambda f=__file__: os.path.splitext(os.path.basename(f))[0]
 file_exists = lambda p: Path(p).exists()
 kill_pid = lambda pid: os.kill(pid, signal.SIGTERM)
 get_pid_path = lambda name=__file__, folder=get_home_path(): '{}/.{}.PID'.format(folder, name)
@@ -416,8 +417,7 @@ class State():
   __checkpoint = 5  # auto-save every update count
 
   def __init__(self, name=None, folder=None):
-    basename, splitext = os.path.basename, os.path.splitext
-    self._name = name if name else splitext(basename(__file__))[0]
+    self._name = name if name else get_file_name(__file__)
     self.__folder = folder if folder else get_dir_path()
     self._path = self.__folder + '/{}.state'.format(self._name)
     self.__chkpnt_cnt = 0
