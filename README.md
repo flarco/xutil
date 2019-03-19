@@ -87,6 +87,5 @@ pip install -e /path/to/xutil
 git clone https://github.com/flarco/xutil.git
 cd xutil
 m2r --overwrite README.md
-python setup.py sdist
-twine upload --skip-existing dist/*
+python setup.py sdist && twine upload --skip-existing dist/*
 ```
