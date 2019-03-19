@@ -285,7 +285,7 @@ def get_exception_message(append_message='', raw=False):
 
 
 def get_error_str(err):
-  err_type = type(err).__name__
+  err_type = type(err)._name__
   err_msg = str(err)
   return '{}: {}'.format(err_type, err_msg)
 
@@ -404,6 +404,66 @@ class struct(dict):
     self[name] = value
 
 
+class State():
+  """ State persisted.
+  
+    >>> from xutil.helpers import State, now
+    >>> state = State()  # will create JSON file or load if exists
+    >>> state.put(name='Mark', updated=now())
+    >>> state.data['updated'] = now()
+  """
+
+  __checkpoint = 5  # auto-save every update count
+
+  def __init__(self, name=None, folder=None):
+    basename, splitext = os.path.basename, os.path.splitext
+    self._name = name if name else splitext(basename(__file__))[0]
+    self.__folder = folder if folder else get_dir_path()
+    self._path = self.__folder + '/{}.state'.format(self._name)
+    self.__chkpnt_cnt = 0
+    self.__deleted = False
+
+    self.data = {}
+
+    if Path(self._path).exists():
+      self.load()
+    else:
+      self.save()
+
+    # save at program termination
+    atexit.register(self.save)
+
+  def put(self, **kwargs):
+    "Alter data"
+    for k in kwargs:
+      self.data[k] = kwargs[k]
+      self.__chkpnt_cnt += 1
+
+    if self.__chkpnt_cnt >= self.__checkpoint:
+      self.save()
+      self.__chkpnt_cnt = 0
+
+  def save(self):
+    "Persist to disk"
+    if not self.__deleted:
+      with open(self._path, 'w') as file:
+        json.dump(self.data, file, cls=MyJSONEncoder)
+
+  def load(self):
+    "Load from disk"
+    if not self.__deleted:
+      with open(self._path) as file:
+        self.data = json.load(file, object_hook=MyJSONdateHook)
+    else:
+      print('State has been deleted.')
+
+  def delete(self):
+    "Delete from disk"
+    os.remove(self._path)
+    self.__deleted = True
+
+
+
 class MyJSONEncoder(json.JSONEncoder):
   def default(self, o):
     if isinstance(o, datetime.datetime) or isinstance(o, datetime.date):
@@ -418,6 +478,16 @@ class MyJSONEncoder(json.JSONEncoder):
     except:
       val = str(o)
     return val
+
+
+def MyJSONdateHook(json_dict):
+  for (key, value) in json_dict.items():
+    try:
+      json_dict[key] = datetime.datetime.strptime(value,
+                                                  "%Y-%m-%d %H:%M:%S.%f")
+    except:
+      pass
+  return json_dict
 
 
 def str_format(text, data, enc_char):

@@ -21,6 +21,22 @@ class TestHelpers(unittest.TestCase):
     os.remove(test_prof_path)
     self.assertFalse(file_exists(test_prof_path))
 
+  def test_state(self):
+    state = State(name='test_state')
+    test_data = dict(updated = now(), nested = dict(
+      a=1, b=[2, 3]), array = [4, 5, 'a'])
+    state.put(**test_data)
+    state.save()
+    state.load()
+
+    self.assertEqual(test_data, state.data)
+
+    state.delete()
+    self.assertFalse(file_exists(state._path))
+
+
+
+
 
 if __name__ == '__main__':
   unittest.main()
