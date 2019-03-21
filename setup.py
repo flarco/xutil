@@ -38,7 +38,7 @@ setup(
   install_requires=[
     "verboselogs", "coloredlogs", "psutil", "jmespath", "jsonlines",
     "paramiko", "redis", "cx_Oracle", "psycopg2", "pymongo", "requests",
-    "pyspark", "hdfs", "sqlalchemy", "prettytable", "pyarrow", "s3fs",
+    "hdfs", "sqlalchemy", "prettytable", "pyarrow", "s3fs",
     "sqlparse", "scp"
   ],
   extras_require={
