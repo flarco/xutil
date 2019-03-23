@@ -286,7 +286,7 @@ def get_exception_message(append_message='', raw=False):
 
 
 def get_error_str(err):
-  err_type = type(err)._name__
+  err_type = type(err).__name__
   err_msg = str(err)
   return '{}: {}'.format(err_type, err_msg)
 
