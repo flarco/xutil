@@ -1145,8 +1145,7 @@ class SparkConn(HiveConn):
       restart=restart,
       hive_enabled=hive_enabled,
       master=master,
-      spark_home=spark_home,
-      version=version)
+      spark_home=spark_home)
     self.application_id = self.sparko.sc._jsc.sc().applicationId()
 
     self._cred.name = self.name = "Spark"
