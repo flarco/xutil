@@ -34,6 +34,7 @@ ndelta_minutes = lambda past: tdelta_minutes(now(), past)  # now delta minutes
 now_str = lambda: datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 now_file_str = lambda: datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
 today_str = lambda: datetime.datetime.now().strftime('%Y%m%d')
+date_str = lambda: datetime.datetime.now().strftime('%Y-%m-%d')
 get_row_fields = lambda r: r._fields if hasattr(r, '_fields') else r.__fields__
 jdumps = lambda obj: json.dumps(obj, cls=MyJSONEncoder)
 jloads = lambda obj: json.loads(obj)
