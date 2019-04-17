@@ -429,6 +429,13 @@ def ff_to_ff(src_ff, src_deli,
   return dict(completed=True)
 
 
+def bash(cmd, *args, **kwargs):
+  process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+  for line in iter(process.stdout.readline, b''):
+     sys.stdout.write(line.decode())
+     sys.stdout.flush()
+
+
 def get_partition_col(src_db, table, n=20000, echo=False):
   """Automatically detect a suitable partition column with n sample records"""
   conn = get_conn(src_db)
