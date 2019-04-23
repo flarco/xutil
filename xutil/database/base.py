@@ -964,7 +964,7 @@ def get_conn(db,
     else:
       conn = HiveConn(db_dict, echo=echo)
 
-  elif db_dict.type.lower() == 'postgresql':
+  elif db_dict.type.lower() in ('postgresql', 'redshift'):
     from .postgresql import PostgreSQLConn
     conn = PostgreSQLConn(db_dict, echo=echo)
 
