@@ -36,6 +36,7 @@ databases:
     port: 5432
     user: user
     password: password
+    sslmode: disable
     type: postgresql
     url: "jdbc:postgresql://host:port/database?&ssl=false"
 
