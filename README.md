@@ -78,6 +78,12 @@ https://github.com/tartley/colorama/blob/master/setup.py
 pip install -e /path/to/xutil
 ```
 
+## Testing
+
+```
+python setup.py test
+```
+
 ## Release
 
 - Update version in [setup.py](./setup.py).
