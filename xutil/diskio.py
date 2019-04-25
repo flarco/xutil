@@ -57,11 +57,11 @@ def read_yaml(path):
   if '.zip' in path.lower():
     Z = zipimporter(get_zip_path(path))
     file = BytesIO(Z.get_data(path))
-    dict_ = yaml.load(file)
+    dict_ = yaml.load(file, Loader=yaml.FullLoader)
     return dict_
 
   with open(path) as file:
-    dict_ = yaml.load(file)
+    dict_ = yaml.load(file, Loader=yaml.FullLoader)
   return dict_
 
 
