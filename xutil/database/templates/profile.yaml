@@ -79,6 +79,7 @@ databases:
     port: 35432
     user: user
     password: password
+    sslmode: disable
     type: postgresql
     url: "jdbc:postgresql://localhost:35432/test_db?&ssl=false"
   
