@@ -52,14 +52,15 @@ class DBConn(object):
     self._cred = struct(conn_dict)
     self._cred.kwargs = conn_dict.get('kwargs', {})
     self.name = self._cred.get('name', None)
+    self.username = self._cred.get('username', None)
     self.type = self._cred.type
     self.engine = None
     self.profile = profile
     self.batch_size = 10000
     self.fetch_size = 20000
+    self.echo = echo
     self.connect()
     self.last_connect = now()
-    self.echo = echo
 
     # Base Template
     template_base_path = '{}/database/templates/base.yaml'.format(
@@ -99,8 +100,10 @@ class DBConn(object):
       log("Connected to {} as {}".format(self._cred.name, self._cred.user))
 
   def connect(self):
-    """Connect  to Database"""
-    raise Exception("Method 'connect' is not implemented!")
+    """Connect to Database"""
+    self.engine = self.get_engine()
+    self.connection = self.engine.connect()
+    self.cursor = None
 
   def reconnect(self, min_tresh=0):
     """Re-Connect to Database if minute threshold reached"""
@@ -975,6 +978,8 @@ def get_conn(db,
   elif db_dict.type.lower() == 'sqlite':
     from .sqlite import SQLiteConn
     conn = SQLiteConn(db_dict, echo=echo)
+  else:
+    raise Exception(f'Type {db_dict.type} not handled!')
 
   conns[db] = conn
   return conn

@@ -144,6 +144,8 @@ class PostgreSQLConn(DBConn):
   object_type_map = {'TABLE': 'BASE TABLE', 'VIEW': 'VIEW'}
 
   def set_variables(self):
+    self.connection.autocommit = True
+
     self.batch_size = 50000
 
     self.col_name_id = 2
@@ -219,8 +221,6 @@ class PostgreSQLConn(DBConn):
     self.cursor = None
 
     self.connection.autocommit = True
-    self.name = 'postgresql'
-    self.username = cred.user if cred else ''
 
     cursor = self.get_cursor()
 

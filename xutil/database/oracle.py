@@ -25,6 +25,8 @@ class OracleConn(DBConn):
 
   def set_variables(self):
     import cx_Oracle
+    self.connection.autocommit = True
+    self.username = self.connection.username
 
     self.col_name_id = 2
 
