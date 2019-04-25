@@ -58,6 +58,21 @@ https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-micro
 odbcinst -j
 ```
 
+## Oracle
+
+Install Oracle Client:
+
+```
+brew tap InstantClientTap/instantclient
+brew install instantclient-basic
+```
+
+Installing with conda:
+
+```bash
+conda install oracle-instantclient -y
+```
+
 ## Spark SQL
 
 It is the user's responsibility to properly set up the SPARK_HOME environment and configurations.
