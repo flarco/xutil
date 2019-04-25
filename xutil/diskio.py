@@ -152,7 +152,10 @@ def read_csvD(file_path,
     date_parser=date_parser,
     # quoting=csv.QUOTE_MINIMAL ,
     infer_datetime_format=detect_date,
-    as_recarray=recarray)
+  )
+  
+  if recarray:
+    df = df.to_records()
 
   for col in df.columns:
     if not detect_date: continue
