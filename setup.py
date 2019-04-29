@@ -58,6 +58,7 @@ setup(
       'xutil-alias=xutil.cli:alias_cli',
       'xutil-create-profile=xutil.cli:create_profile',
       'ipy=xutil.cli:ipy',
+      'xutil-profile-entry=xutil.cli:profile_entry',
       'ipy-spark=xutil.cli:ipy_spark',
     ],
   },

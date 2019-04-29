@@ -77,6 +77,48 @@ def exec_sql():
   from xutil.database.etl import SqlCmdParser
   SqlCmdParser()
 
+def profile_entry():
+  from xutil.helpers import get_databases
+  from collections import OrderedDict
+  import urllib.parse as urlparse
+  import yaml
+
+
+  parser = argparse.ArgumentParser(description='Profile Entry Maker')
+  parser.add_argument('--url', help='the URL')
+  parser.add_argument('--name', help='Database Name')
+  parser.add_argument('--url_type', help='Type of URL (SQL Alchemy is default)')
+  args = parser.parse_args()
+
+  if not (args.url and args.name):
+    raise Exception("Need to provide --url and --name")
+  
+  databases = get_databases()
+  url_vars = urlparse.urlparse(args.url)
+
+  prof = {}
+
+  prof['name'] = args.name
+  prof['host'] = url_vars.hostname
+  prof['port'] = url_vars.port
+  prof['user'] = url_vars.username
+  prof['password'] = url_vars.password
+  prof['database'] = url_vars.path[1:]
+  prof['type'] = url_vars.scheme
+
+  if 'postgres' in prof['type']:
+    prof['type'] = 'postgresql'
+  if 'mssql' in prof['type']:
+    prof['type'] = 'sqlserver'
+  if 'oracle' in prof['type']:
+    prof['type'] = 'oracle'
+  
+  if prof['type'] in ('postgresql', 'redshift'):
+    prof['sslmode'] = 'require'
+    prof['url'] = f"jdbc:postgresql://{prof['host']}:{prof['port']}/{prof['database']}"
+    prof['sa_url'] = args.url
+
+  print(yaml.dump({args.name : prof}))
 
 def exec_etl():
   from xutil.database.etl import EtlCmdParser
