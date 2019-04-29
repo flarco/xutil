@@ -66,6 +66,22 @@ https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-micro
 
    odbcinst -j
 
+Oracle
+------
+
+Install Oracle Client:
+
+.. code-block::
+
+   brew tap InstantClientTap/instantclient
+   brew install instantclient-basic
+
+Installing with conda:
+
+.. code-block:: bash
+
+   conda install oracle-instantclient -y
+
 Spark SQL
 ---------
 
@@ -88,6 +104,13 @@ Dev
 
    pip install -e /path/to/xutil
 
+Testing
+-------
+
+.. code-block::
+
+   python setup.py test
+
 Release
 -------
 
@@ -100,5 +123,49 @@ Release
    git clone https://github.com/flarco/xutil.git
    cd xutil
    m2r --overwrite README.md
-   python setup.py sdist
-   twine upload --skip-existing dist/*
+   python setup.py sdist && twine upload --skip-existing dist/*
+
+TODO
+====
+
+Revamp ``database.base`` methods:
+-------------------------------------
+
+.. code-block::
+
+   get_conn
+   DBConn
+     __init__
+     _set_variables
+     _do_execute
+     _split_schema_table
+     _concat_fields
+     _template
+
+     connect
+     check_pk
+     execute -- straight SA.connection.execute, return "fields, rows"
+     query -- use the SQLAlachy and replaces self.select, fields = conn._fields"
+     stream
+     insert
+     drop_table
+     create_table
+     get_cursor_fields -> _get_cursor_fields
+     get_schemas
+     get_objects
+     get_tables
+     get_views
+     get_columns
+     get_primary_keys
+     get_indexes
+     get_ddl
+     get_all_columns
+     get_all_tables
+     analyze_fields
+     analyze_tables
+     analyze_join_match
+
+     remove:
+       get_cursor: no need for get_cursor with SA
+       execute_multi
+       select: use `query` instead, which uses `execute`
