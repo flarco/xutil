@@ -28,7 +28,7 @@ class BaseDBTest(unittest.TestCase):
     while 1:
       time.sleep(1)
       try:
-        cls.conn = get_conn(cls.db_name)
+        cls.conn = get_conn(cls.db_name, echo=False)
         break
       except Exception as E:
         if tdelta_seconds(now(), st) > cls.timeout:
@@ -37,6 +37,7 @@ class BaseDBTest(unittest.TestCase):
 
   @classmethod
   def tearDownClass(cls):
+    cls.conn.connection.close()
     cls.container.kill()
 
 
@@ -58,26 +59,59 @@ class TestPostGres(BaseDBTest):
 
   def test_load_data(self):
 
-    Row = namedtuple('Row', 'name state time comment')
-    test_data = [
-      Row('Fritz', 'Florida', epoch(), 'some\ncomment\nwith new line'),
-      Row('James', 'California', epoch(),
-          '''comment\twith\n comma, 'tab' and "quotes" ''')
-    ]
+    table_name = 'public.test_table'
+    Row = namedtuple('Row', 'id name state time comment timestamp')
+    test_data = []
+    for i in range(51):
+      test_data += [
+        Row('a'+str(i), 'Fritz', 'Florida', epoch(), 'some\ncomment\nwith new line', now()),
+        Row('b'+str(i), 'James', 'California', epoch(),
+          '''comment\twith\n comma, 'tab' and "quotes" ''',
+            now())
+      ]
+      
     field_types = dict(
+      id=('string', 0, 15),
       name=('string', 0, 100),
       state=('string', 0, 100),
       time=('integer', 0, epoch()),
       comment=('string', 0, 100),
+      timestamp=('timestamp', 0, 100),
     )
-    self.conn.create_table('test_table', field_types)
-    count = self.conn.insert('test_table', test_data)
+    self.conn.batch_size = 100
+    self.conn.create_table(table_name, field_types)
+    self.conn.execute('ALTER TABLE test_table ADD PRIMARY KEY (id)')
+    count = self.conn.insert(table_name, test_data)
     self.assertEqual(count, len(test_data))
 
     fields, rows = self.conn.execute(
-      'select * from test_table', dtype='tuple')
+      'select * from ' + table_name, dtype='tuple')
     self.assertEqual([tuple(r) for r in test_data], rows)
     self.assertEqual(fields, list(Row._fields))
+
+
+    # Test analysis
+    data = self.conn.analyze_fields('field_chars', table_name)
+    self.assertEqual(fields, [r.field for r in data])
+
+    data = self.conn.analyze_fields('field_stat_deep', table_name)
+    self.assertEqual(fields, [r.field for r in data])
+
+    data = self.conn.analyze_fields('field_stat_deep', table_name)
+    self.assertEqual(fields, [r.field for r in data])
+
+    data = self.conn.analyze_fields('distro_field', table_name, fields=['state'])
+    self.assertEqual(2, len(data))
+
+    data = self.conn.analyze_fields('distro_field_date', table_name, fields=['timestamp'])
+    self.assertEqual(1, len(data))
+
+    # Test replace
+    test_data[0] = Row(test_data[0][0], 'Emma', 'Florida', epoch(), 'some\ncomment\nwith new line', now())
+    count = self.conn.replace('test_table', test_data, pk_fields=['id'])
+    fields, rows = self.conn.execute(
+      'select * from test_table', dtype='tuple')
+    self.assertEqual([tuple(r) for r in test_data], rows)
 
 
 class TestOracle(BaseDBTest):
@@ -94,26 +128,51 @@ class TestOracle(BaseDBTest):
 
   def test_load_data(self):
 
-    Row = namedtuple('Row', 'name_ state_ time_ comment_')
-    test_data = [
-      Row('Fritz', 'Florida', epoch(), 'some\ncomment\nwith new line'),
-      Row('James', 'California', epoch(),
-          '''comment\twith\n comma, 'tab' and "quotes" ''')
-    ]
+    table_name = 'system.test_table'
+    Row = namedtuple('Row', 'id_ name_ state_ time_ comment_ timestamp_')
+    test_data = []
+    for i in range(51):
+      test_data += [
+        Row('a'+str(i), 'Fritz', 'Florida', epoch(), 'some\ncomment\nwith new line', now().replace(microsecond=0)),
+        Row('b'+str(i), 'James', 'California', epoch(),
+          '''comment\twith\n comma, 'tab' and "quotes" ''',
+            now().replace(microsecond=0))
+      ]
+      
     field_types = dict(
-      name_=('string', 500, None),
-      state_=('string', 500, None),
+      id_=('string', 15, None),
+      name_=('string', 100, None),
+      state_=('string', 100, None),
       time_=('integer', 15, None),
-      comment_=('string', 500, None),
+      comment_=('string', 100, None),
+      timestamp_=('timestamp', None, None),
     )
-    self.conn.create_table('test_table', field_types)
-    count = self.conn.insert('test_table', test_data)
+    self.conn.batch_size = 100
+    self.conn.create_table(table_name, field_types)
+    count = self.conn.insert(table_name, test_data)
     self.assertEqual(count, len(test_data))
 
     fields, rows = self.conn.execute(
-      'select * from test_table', dtype='tuple')
+      'select * from '+table_name, dtype='tuple')
     self.assertEqual([tuple(r) for r in test_data], rows)
     self.assertEqual(fields, list(Row._fields))
+
+
+    # Test analysis
+    data = self.conn.analyze_fields('field_chars', table_name)
+    self.assertEqual(fields, [r.field for r in data])
+
+    data = self.conn.analyze_fields('field_stat_deep', table_name)
+    self.assertEqual(fields, [r.field for r in data])
+
+    data = self.conn.analyze_fields('field_stat_deep', table_name)
+    self.assertEqual(fields, [r.field for r in data])
+
+    data = self.conn.analyze_fields('distro_field', table_name, fields=['state_'])
+    self.assertEqual(2, len(data))
+
+    data = self.conn.analyze_fields('distro_field_date', table_name, fields=['timestamp_'])
+    self.assertEqual(1, len(data))
 
 
 if __name__ == '__main__':
