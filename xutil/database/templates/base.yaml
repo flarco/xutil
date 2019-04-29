@@ -235,8 +235,8 @@ analysis:
         from {schema}.{table}
       )
       select 
-        '{schema}' as schema,
-        '{table}' as table,
+        '{schema}' as schema_nm,
+        '{table}' as table_nm,
         t1.field,
         t1.year,
         t1.month,
