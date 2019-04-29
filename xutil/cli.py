@@ -166,7 +166,7 @@ def ipy_imports(launch_spark=False):
 def ipy(launch_spark=False):
   import IPython
   ipy_imports(launch_spark=launch_spark)
-  IPython.embed(using=False)
+  IPython.embed(using=False) # https://github.com/ipython/ipython/issues/11523
 
 
 def ipy_spark():
