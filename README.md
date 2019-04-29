@@ -110,3 +110,47 @@ cd xutil
 m2r --overwrite README.md
 python setup.py sdist && twine upload --skip-existing dist/*
 ```
+
+
+# TODO
+
+## Revamp `database.base` methods:
+
+```
+get_conn
+DBConn
+  __init__
+  _set_variables
+  _do_execute
+  _split_schema_table
+  _concat_fields
+  _template
+
+  connect
+  check_pk
+  execute -- straight SA.connection.execute, return "fields, rows"
+  query -- use the SQLAlachy and replaces self.select, fields = conn._fields"
+  stream
+  insert
+  drop_table
+  create_table
+  get_cursor_fields -> _get_cursor_fields
+  get_schemas
+  get_objects
+  get_tables
+  get_views
+  get_columns
+  get_primary_keys
+  get_indexes
+  get_ddl
+  get_all_columns
+  get_all_tables
+  analyze_fields
+  analyze_tables
+  analyze_join_match
+
+  remove:
+    get_cursor: no need for get_cursor with SA
+    execute_multi
+    select: use `query` instead, which uses `execute`
+```
