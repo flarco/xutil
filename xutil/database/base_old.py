@@ -29,7 +29,6 @@ from xutil.helpers import (
   str_rmv_indent,
   ptable,
   make_rec,
-  get_error_str,
 )
 from xutil.diskio import read_yaml, write_csvs
 
@@ -56,7 +55,6 @@ class DBConn(object):
     self.username = self._cred.get('username', None)
     self.type = self._cred.type
     self.engine = None
-    self._cursor_description = None
     self.profile = profile
     self.batch_size = 10000
     self.fetch_size = 20000
@@ -105,15 +103,14 @@ class DBConn(object):
     """Connect to Database"""
     self.engine = self.get_engine()
     self.connection = self.engine.connect()
-  
-  def close(self):
-    """Close database connection"""
-    self.conn.connection.close()
+    self.cursor = None
 
   def reconnect(self, min_tresh=0):
     """Re-Connect to Database if minute threshold reached"""
     if (now() - self.last_connect).total_seconds() > min_tresh * 60:
       log('Reconnecting to {}...'.format(self.name))
+      if self.cursor is not None:
+        self.cursor.close()
       self.connect()
       self.last_connect = now()
 
@@ -150,26 +147,21 @@ class DBConn(object):
       fields=fields,
       where_clause=where_clause,
     )
-    data = self.query(sql, echo=False)
-    headers = self._fields
+    data = self.select(sql, echo=False)
+    headers = self.get_cursor_fields()
     print(ptable(headers, data))
     if data[0].pk_result == 'FAIL':
       raise (Exception('PK Text failed for table "{}" with fields "{}"'.format(
         table, fields)))
 
-  def _do_execute(self, sql):
+  def _do_execute(self, sql, cursor=None):
+    cursor = cursor if cursor else self.get_cursor()
     try:
-      self._cursor_description = None
-      self.fields = None
-      self.result = self.connection.execute(sql)
-      self._cursor_description = self.result._cursor_description()
-      self._fields = self._get_cursor_fields()
+      cursor.execute(sql)
     except Exception as E:
-      if 'not open' in get_error_str(E):
-        pass # error when Oracle doesn't have a cursor open
-      else:
-        log(Exception('Error for SQL:\n' + sql))
-        raise E
+      log(Exception('Error for SQL:\n' + sql))
+      raise E
+    self._fields = self.get_cursor_fields(cursor=cursor)
 
   def execute_multi(self,
                     sql,
@@ -188,6 +180,7 @@ class DBConn(object):
 
     self.reconnect(min_tresh=10)
 
+    cursor = self.get_cursor()
     data = None
     fields = None
     rows = []
@@ -229,7 +222,7 @@ class DBConn(object):
 
       try:
         self._fields = []
-        rows = self.query(
+        rows = self.select(
           sql,
           rec_name=query_name,
           dtype=dtype,
@@ -269,91 +262,79 @@ class DBConn(object):
               query_name='Record',
               log=log):
     """Execute SQL, return last result"""
-    self.reconnect(min_tresh=10)
-
-    data = None
-    fields = None
-    rows = []
-    message_mapping = {
-      'drop ': 'Dropping {}.',
-      'truncate ': 'Truncating {}.',
-      'select ': 'Selecting {}.',
-      'create ': 'Creating {}.',
-      'insert ': 'Inserting {}.',
-      'alter ': 'Altering {}.',
-      'update ': 'Updating {}.',
-      'delete ': 'Deleting {}.',
-      'exec ': 'Calling Procedure {}.',
-      'grant ': 'Granting {}.',
-    }
-
-    sql_ = sql.strip().lower()
-
-    for word, message in message_mapping.items():
-      if sql_.startswith(word):
-        if echo:
-          log(
-            message.format(' '.join(
-              sql_.splitlines()[0].split()[1:3]).upper()))
-        break
-
-    # Call procedure with callproc
-    if sql_.startswith('exec '):
-      procedure = sql_[5:].split('(')[0]
-      args = sql_[5:].split('(')[1][:-1].replace("'", '').split(',')
-      args = [a.strip() for a in args]
-      connection = self.engine.raw_connection()
-      try:
-        cursor = connection.cursor()
-        cursor.callproc(procedure, args)
-        self._fields = self._get_cursor_fields(cursor_desc=cursor.description)
-        rows = list(cursor.fetchall())
-        cursor.close()
-        connection.commit()
-        return fields, rows
-      finally:
-        connection.close()
-
-    try:
-      self._fields = []
-      rows = self.query(
-        sql,
-        rec_name=query_name,
+    results = list(
+      self.execute_multi(
+        sql=sql,
         dtype=dtype,
         limit=limit,
         echo=echo,
-        log=log)
-      fields = self._fields
-
-      if '-- pk_test:' in sql.lower() and sql_.startswith('create'):
-        sql_lines = sql_.splitlines()
-        regexp = r'create\s+table\s+(\S*)[\sa-zA-Z\d]+ as'
-        table = re.findall(regexp, sql_lines[0])[0]
-        line = [
-          l for l in sql_lines if l.strip().lower().startswith('-- pk_test:')
-        ][0]
-        fields = line.split(':')[-1]
-        self.check_pk(table, fields)
-
-    except Exception as E:
-      message = get_exception_message().lower()
-
-      if sql_.startswith(
-          'drop ') and self.error_msg['table_not_exist'] in message:
-        log("WARNING: Table already dropped.")
-      else:
-        raise E
-
-    if not fields: fields = []
-
-    return fields, rows
+        query_name=query_name,
+        log=log))
+    return results[-1]
 
   def insert(self, table, data, echo=False):
     """Insert records of namedtuple or dicts"""
-    raise Exception('insert not implemented')
+    from sqlalchemy import MetaData, Table
+    from sqlalchemy.dialects import postgresql
+    from sqlalchemy.inspection import inspect
+
+    schema, table_name = self._split_schema_table(table)
+
+    engine = self.get_engine()
+
+    metadata = MetaData(schema=schema)
+    metadata.bind = engine
+
+    table = Table(table_name, metadata, schema=schema, autoload=True)
+
+    # get list of fields making up primary key
+    # primary_keys = [key.name for key in inspect(table_name).primary_key]
+
+    # assemble base statement
+    dialect = self.get_dialect()
+    # statement = dialect.insert(table).values(data)
+    statement = table.insert().values(data)
+
+    # define dict of non-primary keys for updating
+    # update_dict = {
+    #     c.name: c
+    #     for c in statement.excluded
+    #     if not c.primary_key
+    # }
+
+    # assemble new statement with 'on conflict do update' clause
+    # update_stmt = statement.on_conflict_do_update(
+    #     index_elements=primary_keys,
+    #     set_=update_dict,
+    # )
+
+    # execute
+    with engine.connect() as conn:
+      result = conn.execute(statement)
+      return result
+
+  def _exec_statement_records(self, schema, table_name, data, stmt):
+    """Execute and return records"""
+    from sqlalchemy import MetaData, Table
+    from sqlalchemy.inspection import inspect
+
+    schema, table_name = self._split_schema_table(table)
+
+    engine = self.get_engine()
+
+    metadata = MetaData(schema=schema)
+    metadata.bind = engine
+
+    table = Table(table_name, metadata, schema=schema, autoload=True)
+
+    # execute
+    with engine.connect() as conn:
+      result = conn.execute(stmt)
+      return result
 
   def drop_table(self, table, log=log):
     "Drop table"
+    cursor = self.get_cursor()
 
     try:
       sql = self._template('core.drop_table').format(table)
@@ -368,6 +349,8 @@ class DBConn(object):
 
   def create_table(self, table, field_types, drop=False, log=log):
     "Create table"
+
+    cursor = self.get_cursor()
 
     if drop:
       self.drop_table(table, log=log)
@@ -402,14 +385,27 @@ class DBConn(object):
 
     log('Created table "{}"'.format(table))
 
-  def _get_cursor_fields(self, as_dict=False, native_type=True, cursor_desc=None):
+  def get_cursor(self):
+    "Instantiate connection cursor"
+    if self.cursor is not None:
+      self.cursor.close()
+
+    try:
+      self.cursor = self.connection.cursor()
+    except:
+      self.reconnect()
+      self.cursor = self.connection.cursor()
+
+    return self.cursor
+
+  def get_cursor_fields(self, as_dict=False, native_type=True, cursor=None):
     "Get fields of active Select cursor"
     fields = OrderedDict()
-    cursor_desc = cursor_desc if cursor_desc else self._cursor_description
-    if cursor_desc == None:
+    cursor = cursor if cursor else self.cursor
+    if cursor.description == None:
       return []
 
-    for f in cursor_desc:
+    for f in cursor.description:
       f_name = f[0].lower()
       if as_dict:
         if native_type:
@@ -443,8 +439,12 @@ class DBConn(object):
     self.reconnect(min_tresh=10)
     if echo: log("Streaming SQL for '{}'.".format(rec_name))
 
+    self.get_cursor()
+
     fetch_size = limit if limit else self.fetch_size
     fetch_size = chunk_size if chunk_size else fetch_size
+    self.cursor.arraysize = fetch_size
+    # self.cursor.itersize = fetch_size
 
     try:
       self._do_execute(sql)
@@ -468,7 +468,7 @@ class DBConn(object):
     while True:
       if not self._fields:
         break
-      rows = self.result.fetchmany(fetch_size)
+      rows = self.cursor.fetchmany(fetch_size)
       if rows:
         if yield_chuncks:
           batch = make_batch(rows)
@@ -486,7 +486,7 @@ class DBConn(object):
 
     # log('Stream finished at {} records.'.format(self._stream_counter))
 
-  def query(self,
+  def select(self,
              sql,
              rec_name='Record',
              dtype='namedtuple',
@@ -499,6 +499,7 @@ class DBConn(object):
 
     self.reconnect(min_tresh=10)
     s_t = datetime.datetime.now()
+    cursor = self.get_cursor()
 
     def get_rows(cursor):
       counter = 0
@@ -564,7 +565,7 @@ class DBConn(object):
 
     sql_tmpl = self._template('metadata.schemas')
     if sql_tmpl:
-      schemas = [r[0] for r in self.query(sql_tmpl)]
+      schemas = [r[0] for r in self.select(sql_tmpl)]
     else:
       # http://docs.sqlalchemy.org/en/rel_0_9/core/reflection.html#sqlalchemy.engine.reflection.Inspector.get_schemas
       self.get_engine(echo=echo)
@@ -610,7 +611,7 @@ class DBConn(object):
 
     sql_tmpl = self._template('metadata.tables')
     if sql_tmpl:
-      tables = self.query(sql_tmpl.format(schema=schema))
+      tables = self.select(sql_tmpl.format(schema=schema))
       if hasattr(self, '_std_get_tables'):
         tables = self._std_get_tables(schema, tables)
     else:
@@ -632,7 +633,7 @@ class DBConn(object):
 
     sql_tmpl = self._template('metadata.views')
     if sql_tmpl:
-      views = [r[0] for r in self.query(sql_tmpl.format(schema=schema))]
+      views = [r[0] for r in self.select(sql_tmpl.format(schema=schema))]
     else:
       self.get_engine(echo=echo)
       views = self.engine_inspect.get_view_names(schema)
@@ -689,7 +690,7 @@ class DBConn(object):
 
       sql_tmpl = self._template('metadata.columns')
       if sql_tmpl:
-        rows = self.query(sql_tmpl.format(table=table, schema=schema))
+        rows = self.select(sql_tmpl.format(table=table, schema=schema))
         if hasattr(self, '_std_get_columns'):
           rows = self._std_get_columns(schema, table, rows)
       else:
@@ -718,7 +719,7 @@ class DBConn(object):
 
     sql_tmpl = self._template('metadata.primary_keys')
     if sql_tmpl:
-      rows = self.query(sql_tmpl.format(table=table, schema=schema))
+      rows = self.select(sql_tmpl.format(table=table, schema=schema))
     else:
       self.get_engine(echo=echo)
       r_dict = self.engine_inspect.get_pk_constraint(table, schema=schema)
@@ -749,7 +750,7 @@ class DBConn(object):
 
     sql_tmpl = self._template('metadata.indexes')
     if sql_tmpl:
-      rows = self.query(sql_tmpl.format(table=table, schema=schema))
+      rows = self.select(sql_tmpl.format(table=table, schema=schema))
     else:
       self.get_engine(echo=echo)
       rows = self.engine_inspect.get_indexes(table, schema=schema)
@@ -765,7 +766,7 @@ class DBConn(object):
 
     sql_tmpl = self._template('metadata.ddl')
     if sql_tmpl:
-      rows = self.query(
+      rows = self.select(
         sql_tmpl.format(
           schema=schema,
           table=table,
@@ -786,7 +787,7 @@ class DBConn(object):
       raise Exception('get_all_columns not implemented for {}'.format(
         self.type))
 
-    rows = self.query(sql_tmpl)
+    rows = self.select(sql_tmpl)
     return rows
 
   def get_all_tables(self):
@@ -796,7 +797,7 @@ class DBConn(object):
       raise Exception('get_all_tables not implemented for {}'.format(
         self.type))
 
-    rows = self.query(sql_tmpl)
+    rows = self.select(sql_tmpl)
     return rows
 
   def analyze_fields(self,
@@ -842,7 +843,7 @@ class DBConn(object):
         **expr_func_map,
         **kwargs) for field in fields
     ])
-    return sql if as_sql else self.query(sql, analysis, echo=False)
+    return sql if as_sql else self.select(sql, analysis, echo=False)
 
   def analyze_tables(self, analysis, tables=[], as_sql=False, **kwargs):
     """Base function for table level analysis"""
@@ -864,7 +865,7 @@ class DBConn(object):
         schema=obj.schema, table=obj.table, **kwargs) for obj in objs
     ])
 
-    return sql if as_sql else self.query(sql, analysis, echo=False)
+    return sql if as_sql else self.select(sql, analysis, echo=False)
 
 
   def analyze_join_match(self,
@@ -920,7 +921,7 @@ class DBConn(object):
     sql = self.analyze_fields(
       'table_join_match', t1, [''], as_sql=True, **kwargs)
 
-    return sql if as_sql else self.query(sql, 'table_join_match', echo=False)
+    return sql if as_sql else self.select(sql, 'table_join_match', echo=False)
 
 
 def get_conn(db,
@@ -997,7 +998,7 @@ class SqlX:
   sqlx.x('cache').update(rows, pk_fields)
   sqlx.x('cache').update_one(row, pk_cols)
   sqlx.x('cache').replace(rows, pk_fields)
-  sqlx.x('cache').query(where)
+  sqlx.x('cache').select(where)
   sqlx.x('cache').select_one(where)
   """
 
@@ -1059,8 +1060,8 @@ class SqlX:
 
   #   self.replace([self.ntRec(**kws)], pk_cols)
 
-  def query(self, where='1=1', one=False, limit=None, as_dict=False):
-    rows = self.conn.query(
+  def select(self, where='1=1', one=False, limit=None, as_dict=False):
+    rows = self.conn.select(
       "select * from {} where {}".format(self.table_obj, where),
       echo=False,
       limit=limit)
@@ -1069,7 +1070,7 @@ class SqlX:
     else: return rows
 
   def select_one(self, where, field=None, as_dict=False):
-    row = self.query(where, one=True, as_dict=as_dict)
+    row = self.select(where, one=True, as_dict=as_dict)
     if field and row:
       return row[field] if as_dict else row.__getattribute__(field)
     return row

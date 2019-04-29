@@ -206,117 +206,124 @@ class PostgreSQLConn(DBConn):
 
     return self.engine
 
-  def connect(self):
-    "Connect / Re-Connect to Database"
-    import psycopg2
-    get_conn_str = lambda cred: "dbname='{}' user='{}' host='{}' port={} password='{}' sslmode='{}'".format(
-      cred.database, cred.user,
-      cred.host, cred.port,
-      cred.password, cred.sslmode)
+  # def connect(self):
+  #   "Connect / Re-Connect to Database"
+  #   import psycopg2
+  #   get_conn_str = lambda cred: "dbname='{}' user='{}' host='{}' port={} password='{}' sslmode='{}'".format(
+  #     cred.database, cred.user,
+  #     cred.host, cred.port,
+  #     cred.password, cred.sslmode)
 
-    cred = struct(self._cred) if isinstance(self._cred, dict) else None
-    cred.sslmode = cred.sslmode if 'sslmode' in cred else 'disable'
-    conn_str = get_conn_str(cred) if cred else self._cred
-    self.connection = psycopg2.connect(conn_str)
-    self.cursor = None
+  #   cred = struct(self._cred) if isinstance(self._cred, dict) else None
+  #   cred.sslmode = cred.sslmode if 'sslmode' in cred else 'disable'
+  #   conn_str = get_conn_str(cred) if cred else self._cred
+  #   self.connection = psycopg2.connect(conn_str)
+  #   self.cursor = None
 
-    self.connection.autocommit = True
+  #   self.connection.autocommit = True
 
-    cursor = self.get_cursor()
+  #   cursor = self.get_cursor()
 
-  def stream(self,
-             sql,
-             rec_name='Record',
-             dtype='namedtuple',
-             yield_chuncks=False,
-             chunk_size=None,
-             limit=None,
-             echo=True):
-    "Stream Select from SQL, yield records as they come in"
-    from psycopg2.extras import NamedTupleCursor
-    self.reconnect(min_tresh=10)
+  # def stream(self,
+  #            sql,
+  #            rec_name='Record',
+  #            dtype='namedtuple',
+  #            yield_chuncks=False,
+  #            chunk_size=None,
+  #            limit=None,
+  #            echo=True):
+  #   "Stream Select from SQL, yield records as they come in"
+  #   from psycopg2.extras import NamedTupleCursor
+  #   self.reconnect(min_tresh=10)
 
-    if echo: log("Streaming SQL for '{}'.".format(rec_name))
+  #   if echo: log("Streaming SQL for '{}'.".format(rec_name))
 
-    autocommit = self.connection.autocommit
-    if self.connection.autocommit:
-      self.connection.autocommit = False
+  #   autocommit = self.connection.autocommit
+  #   if self.connection.autocommit:
+  #     self.connection.autocommit = False
 
-    self._stream_counter = 0
-    fetch_size = limit if limit else self.fetch_size
-    fetch_size = chunk_size if chunk_size else fetch_size
-    make_rec = None
-    fields = None
-    done = False
+  #   self._stream_counter = 0
+  #   fetch_size = limit if limit else self.fetch_size
+  #   fetch_size = chunk_size if chunk_size else fetch_size
+  #   make_rec = None
+  #   fields = None
+  #   done = False
 
-    cursor = self.connection.cursor(
-      name='cursor_' + str(int(time.time() * 1000)),
-      cursor_factory=NamedTupleCursor)
-    cursor.itersize = fetch_size
+  #   cursor = self.connection.cursor(
+  #     name='cursor_' + str(int(time.time() * 1000)),
+  #     cursor_factory=NamedTupleCursor)
+  #   cursor.itersize = fetch_size
 
-    try:
-      self._do_execute(sql, cursor)
-    except Exception as E:
-      self.connection.rollback()
-      done = True
-      raise E
+  #   try:
+  #     self._do_execute(sql, cursor)
+  #   except Exception as E:
+  #     self.connection.rollback()
+  #     done = True
+  #     raise E
 
-    while not done:
-      if not make_rec:
-        row = cursor.fetchone()
-        fields = self.get_cursor_fields(cursor=cursor)
-        self._fields = fields
-        rows = [row] if row else []
+  #   while not done:
+  #     if not make_rec:
+  #       row = cursor.fetchone()
+  #       fields = self.get_cursor_fields(cursor=cursor)
+  #       self._fields = fields
+  #       rows = [row] if row else []
 
-        if dtype == 'tuple':
-          make_rec = lambda row: list(row)
-          make_batch = lambda rows: [make_rec(r) for r in rows]
-        elif dtype == 'dataframe':
-          yield_chuncks = True
-          make_rec = lambda row: list(row)
-          make_batch = lambda rows: pandas.DataFrame([list(r) for r in rows], columns=self._fields)
-          # make_batch = lambda rows: make_batch_df(rows, fields)
+  #       if dtype == 'tuple':
+  #         make_rec = lambda row: list(row)
+  #         make_batch = lambda rows: [make_rec(r) for r in rows]
+  #       elif dtype == 'dataframe':
+  #         yield_chuncks = True
+  #         make_rec = lambda row: list(row)
+  #         make_batch = lambda rows: pandas.DataFrame([list(r) for r in rows], columns=self._fields)
+  #         # make_batch = lambda rows: make_batch_df(rows, fields)
 
-        else:
-          # since we're using NamedTupleCursor
-          make_rec = lambda row: row
-          make_batch = lambda rows: [make_rec(r) for r in rows]
+  #       else:
+  #         # since we're using NamedTupleCursor
+  #         make_rec = lambda row: row
+  #         make_batch = lambda rows: [make_rec(r) for r in rows]
 
-        rows = rows + cursor.fetchmany(fetch_size)
-      else:
-        rows = cursor.fetchmany(fetch_size)
+  #       rows = rows + cursor.fetchmany(fetch_size)
+  #     else:
+  #       rows = cursor.fetchmany(fetch_size)
 
-      if not fields:
-        break
+  #     if not fields:
+  #       break
 
-      if rows:
-        if yield_chuncks:
-          batch = make_batch(rows)
-          self._stream_counter += len(batch)
-          if len(batch):
-            yield batch
-        else:
-          for row in rows:
-            self._stream_counter += 1
-            yield make_rec(row)
-            if limit and self._stream_counter == limit:
-              done = True
-              break
-      else:
-        done = True
+  #     if rows:
+  #       if yield_chuncks:
+  #         batch = make_batch(rows)
+  #         self._stream_counter += len(batch)
+  #         if len(batch):
+  #           yield batch
+  #       else:
+  #         for row in rows:
+  #           self._stream_counter += 1
+  #           yield make_rec(row)
+  #           if limit and self._stream_counter == limit:
+  #             done = True
+  #             break
+  #     else:
+  #       done = True
 
-    cursor.close()
-    self.connection.commit()
-    # self.connection.autocommit = autocommit
+  #   cursor.close()
+  #   self.connection.commit()
+  #   # self.connection.autocommit = autocommit
 
   def insert_csv(self, table, file_path, delimiter=','):
     s_t = datetime.datetime.now()
     counter = sum(1 for line in open(file_path)) - 1
     file = open(file_path, 'r')
     file.readline()
-    cursor = self.get_cursor()
-    cursor.copy_from(file, table, sep=delimiter)
-    self.connection.commit()
+    connection = self.engine.raw_connection()
+    connection.autocommit = False
+    cursor = connection.cursor()
+
+    try:
+      cursor.copy_from(file, table, sep=delimiter)
+    finally:
+      cursor.close()
+      connection.commit()
+      connection.close()
 
     secs = (datetime.datetime.now() - s_t).total_seconds()
     mins = round(secs / 60, 1)
@@ -363,7 +370,7 @@ class PostgreSQLConn(DBConn):
 
     pk_fields_set = set(pk_fields)
     table = table + '_temp' if temp_table else table
-    sql = self.template(sql_tmpl).format(
+    sql = self._template(sql_tmpl).format(
       table=table,
       set_fields=',\n'.join([
         '{f} = %({f})s'.format(f=f) for i, f in enumerate(fields)
@@ -374,8 +381,8 @@ class PostgreSQLConn(DBConn):
         if f not in pk_fields_set
       ]),
       names=',\n'.join(['{f}'.format(f=f) for f in fields]),
-      pK_fields=', '.join(['{f}'.format(f=f) for f in pk_fields_set]),
-      pK_fields_equal=' and '.join(
+      pk_fields=', '.join(['{f}'.format(f=f) for f in pk_fields_set]),
+      pk_fields_equal=' and '.join(
         ['t1.{f} = t2.{f}'.format(f=f) for f in pk_fields_set]),
       values=',\n'.join(['%({f})s'.format(f=f) for f in fields]),
       temp_table=temp_table,
@@ -397,8 +404,9 @@ class PostgreSQLConn(DBConn):
       counter = len(data)
 
     else:
-      # self.connection.autocommit = False
-      cursor = self.get_cursor()
+      connection = self.engine.raw_connection()
+      connection.autocommit = False
+      cursor = connection.cursor()
 
       try:
         counter = 0
@@ -413,15 +421,16 @@ class PostgreSQLConn(DBConn):
               batch = []
 
           if len(batch):
+            batch = [r._asdict() for r in batch]
             cursor.executemany(sql, batch)
             counter += len(batch)
         else:
           # cursor.bindvars = None
-          cursor.executemany(sql, data)
+          cursor.executemany(sql, [r._asdict() for r in data])
           counter += len(data)
 
         if commit:
-          self.connection.commit()
+          connection.commit()
         else:
           return counter
 
@@ -429,8 +438,10 @@ class PostgreSQLConn(DBConn):
         log(Exception('Error for SQL: ' + sql))
         raise e
 
-      # finally:
-      #   self.connection.autocommit = True
+      finally:
+        cursor.close()
+        connection.commit()
+        connection.close()
 
     secs = (datetime.datetime.now() - s_t).total_seconds()
     mins = round(secs / 60, 1)
@@ -449,9 +460,10 @@ class PostgreSQLConn(DBConn):
     values = [i + 1
               for i in range(len(fields))] if mode == 'namedtuple' else fields
 
-    # self.connection.autocommit = False
-    cursor = self.get_cursor()
-    sql = self.template('core.insert').format(
+    connection = self.engine.raw_connection()
+    connection.autocommit = False
+    cursor = connection.cursor()
+    sql = self._template('core.insert').format(
       table=table,
       names=', \n'.join([self._fix_f_name(f) for f in fields]),
       values=', \n'.join(['%s'] * len(values)),
@@ -462,6 +474,9 @@ class PostgreSQLConn(DBConn):
     def get_batch():
       for r, row in enumerate(data):
         yield row
+
+    cols_str = ', '.join(fields)
+    copy_sql = '''COPY {} ({}) FROM stdin WITH CSV DELIMITER '|' QUOTE '"' ESCAPE '"' '''.format(table, cols_str)
 
     try:
       deli = '|'
@@ -479,27 +494,25 @@ class PostgreSQLConn(DBConn):
       for r, row in enumerate(data):
         batch_w.writerow(row)
         counter += 1
-        if counter % self.batch_size == 0:
-          cursor.copy_from(batch_f, table, columns=fields, sep=deli)
+        # if counter % self.batch_size == 0:
+        #   cursor.copy_expert(copy_sql, open(temp_file_path, 'r'))
 
-          batch_f = open(temp_file_path, 'w')
-          batch_w = csv.writer(
-            batch_f, delimiter=deli, quoting=csv.QUOTE_MINIMAL)
+        #   batch_f = open(temp_file_path, 'w')
+        #   batch_w = csv.writer(
+        #     batch_f, delimiter=deli, quoting=csv.QUOTE_MINIMAL)
 
       batch_f.close()
-      cols_str = ', '.join(fields)
-      copy_sql = '''COPY {} ({}) FROM stdin WITH CSV DELIMITER '|' QUOTE '"' ESCAPE '"' '''.format(table, cols_str)
       cursor.copy_expert(copy_sql, open(temp_file_path, 'r'))
-      # cursor.copy_from(open(temp_file_path, 'r'), table, columns=fields, sep=deli)
-      self.connection.commit()
       os.remove(temp_file_path)
 
     except Exception as e:
       log(Exception('Error for SQL: ' + sql))
       raise e
-
-    # finally:
-    #   self.connection.autocommit = True
+    
+    finally:
+      cursor.close()
+      connection.commit()
+      connection.close()
 
     secs = (datetime.datetime.now() - s_t).total_seconds()
     mins = round(secs / 60, 1)

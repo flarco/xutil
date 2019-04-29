@@ -437,7 +437,7 @@ class Beeline(HiveConn):
       r_dict = dict(schema=schema, table=table)
       return Rec(**r_dict)
 
-    sql_tmpl = self.template('metadata.tables')
+    sql_tmpl = self._template('metadata.tables')
     tables = [r[1] for r in self.select(sql_tmpl.format(schema=schema))]
     rows = [get_rec(t) for t in sorted(tables)]
     return rows
@@ -465,7 +465,7 @@ class Beeline(HiveConn):
       if 'attrs' in r_dict: del r_dict['attrs']
       return Rec(**r_dict)
 
-    sql_tmpl = self.template('metadata.columns')
+    sql_tmpl = self._template('metadata.columns')
     rows = self.select(sql_tmpl.format(table=table, schema=schema))
     rows = [get_rec(r.asDict(), i + 1) for i, r in enumerate(rows)]
 

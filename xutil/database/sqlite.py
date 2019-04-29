@@ -29,17 +29,9 @@ class SQLiteConn(DBConn):
       insert_option='',
     )
 
-  def connect(self):
-    "Connect / Re-Connect to Database"
-    import sqlite3
-    self.connection = sqlite3.connect(self._cred.database, timeout=15)
-    self.cursor = None
-
-    # self.connection.autocommit = True
     self._cred.name = 'sqlite3'
     self._cred.user = ''
 
-    cursor = self.get_cursor()
     self._do_execute('PRAGMA temp_store=MEMORY')
     self._do_execute('PRAGMA journal_mode=MEMORY')
 
@@ -71,10 +63,11 @@ class SQLiteConn(DBConn):
     values = [i + 1
               for i in range(len(fields))] if mode == 'namedtuple' else fields
 
-    # self.connection.autocommit = False
-    cursor = self.get_cursor()
+    connection = self.engine.raw_connection()
+    connection.autocommit = False
+    cursor = connection.cursor()
 
-    sql = self.template('core.replace').format(
+    sql = self._template('core.replace').format(
       table=table,
       names=', '.join(fields),
       values=', '.join(['?' for val in values]),
@@ -101,7 +94,7 @@ class SQLiteConn(DBConn):
         counter += len(data)
 
       if commit:
-        self.connection.commit()
+        connection.commit()
       else:
         return counter
 
@@ -109,8 +102,10 @@ class SQLiteConn(DBConn):
       log(Exception('Error for SQL: ' + sql))
       raise e
 
-    # finally:
-    #   self.connection.autocommit = True
+    finally:
+      cursor.close()
+      connection.commit()
+      connection.close()
 
     secs = (datetime.datetime.now() - s_t).total_seconds()
     mins = round(secs / 60, 1)
@@ -146,14 +141,15 @@ class SQLiteConn(DBConn):
     if temp_table:
       raise Exception('temp_table UPDATE is not supported in SQLite.')
 
-    # self.connection.autocommit = False
-    cursor = self.get_cursor()
+    connection = self.engine.raw_connection()
+    connection.autocommit = False
+    cursor = connection.cursor()
 
     pk_fields_set = set(pk_fields)
     sql_tmpl = 'core.update'
     sql_tmpl = sql_tmpl + '_temp' if temp_table else sql_tmpl
 
-    sql = self.template(sql_tmpl).format(
+    sql = self._template(sql_tmpl).format(
       table=table,
       set_fields=',\n'.join([
         '{f} = :{f}'.format(f=f) for i, f in enumerate(fields)
@@ -207,7 +203,7 @@ class SQLiteConn(DBConn):
           counter += len(data)
 
         if commit:
-          self.connection.commit()
+          connection.commit()
         else:
           return counter
 
@@ -215,8 +211,10 @@ class SQLiteConn(DBConn):
         log(Exception('Error for SQL: ' + sql))
         raise e
 
-    # finally:
-    #   self.connection.autocommit = True
+      finally:
+        cursor.close()
+        connection.commit()
+        connection.close()
 
     secs = (datetime.datetime.now() - s_t).total_seconds()
     mins = round(secs / 60, 1)
@@ -239,11 +237,13 @@ class SQLiteConn(DBConn):
     values = [i + 1
               for i in range(len(fields))] if mode == 'namedtuple' else fields
 
-    # self.connection.autocommit = False
-    cursor = self.get_cursor()
-    sql = self.template('core.insert').format(
+    connection = self.engine.raw_connection()
+    connection.autocommit = False
+    cursor = connection.cursor()
+
+    sql = self._template('core.insert').format(
       table=table,
-      options=self.template('core.insert_option'),
+      options=self._template('core.insert_option'),
       names=', '.join(fields),
       values=', '.join(['?' for val in values]),
     )
@@ -267,13 +267,18 @@ class SQLiteConn(DBConn):
         cursor.executemany(sql, data)
         counter += len(data)
 
-      self.connection.commit()
+      connection.commit()
       if echo:
         log("Inserted {} records into table '{}'.".format(counter, table))
 
     except Exception as e:
       log(Exception('Error for SQL: ' + sql))
       raise e
+
+    finally:
+      cursor.close()
+      connection.commit()
+      connection.close()
 
     secs = (datetime.datetime.now() - s_t).total_seconds()
     mins = round(secs / 60, 1)

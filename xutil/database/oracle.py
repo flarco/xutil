@@ -25,8 +25,7 @@ class OracleConn(DBConn):
 
   def set_variables(self):
     import cx_Oracle
-    self.connection.autocommit = True
-    self.username = self.connection.username
+    # self.connection.autocommit = True
 
     self.col_name_id = 2
 
@@ -54,34 +53,34 @@ class OracleConn(DBConn):
       fname = fname[:30]
     return fname
 
-  def connect(self):
-    "Connect / Re-Connect to Database"
-    import cx_Oracle
+  # def connect(self):
+  #   "Connect / Re-Connect to Database"
+  #   import cx_Oracle
 
-    # get_conn_str = lambda cred: '{}/{}@{}'.format(cred.user, cred.password, cred.name)
+  #   # get_conn_str = lambda cred: '{}/{}@{}'.format(cred.user, cred.password, cred.name)
 
-    def get_conn_str(cred):
-      if 'service' in cred:
-        dns_str = cx_Oracle.makedsn(
-          cred.host, cred.port, service_name=cred.service)
-      elif 'sid' in cred:
-        dns_str = cx_Oracle.makedsn(cred.host, cred.port, sid=cred.sid)
-      return '{}/{}@{}'.format(cred.user, cred.password, dns_str)
+  #   def get_conn_str(cred):
+  #     if 'service' in cred:
+  #       dns_str = cx_Oracle.makedsn(
+  #         cred.host, cred.port, service_name=cred.service)
+  #     elif 'sid' in cred:
+  #       dns_str = cx_Oracle.makedsn(cred.host, cred.port, sid=cred.sid)
+  #     return '{}/{}@{}'.format(cred.user, cred.password, dns_str)
 
-    conn_str = get_conn_str(struct(self._cred)) if isinstance(
-      self._cred, dict) else self._cred
-    self.connection = cx_Oracle.connect(conn_str)
-    self.cursor = None
+  #   conn_str = get_conn_str(struct(self._cred)) if isinstance(
+  #     self._cred, dict) else self._cred
+  #   self.connection = cx_Oracle.connect(conn_str)
+  #   self.cursor = None
 
-    self.connection.autocommit = True
-    self.name = self._cred['name'] if isinstance(
-      self._cred, dict) else self.connection.tnsentry
-    self.username = self.connection.username
+  #   self.connection.autocommit = True
+  #   self.name = self._cred['name'] if isinstance(
+  #     self._cred, dict) else self.connection.tnsentry
+  #   self.username = self.connection.username
 
   def get_dialect(self, echo=False):
     """SQLAlchemy dialect"""
     from sqlalchemy.dialects import oracle, postgresql
-    return postgresql
+    return oracle
 
   def create_engine(self, conn_str=None, echo=False):
     from cx_Oracle import makedsn
@@ -135,11 +134,13 @@ class OracleConn(DBConn):
     values = [i + 1
               for i in range(len(fields))] if mode == 'namedtuple' else fields
 
-    self.connection.autocommit = False
-    cursor = self.get_cursor()
-    sql = self.template('core.insert').format(
+    connection = self.engine.raw_connection()
+    connection.autocommit = False
+    cursor = connection.cursor()
+    
+    sql = self._template('core.insert').format(
       table=table,
-      options=self.template('core.insert_option'),
+      options=self._template('core.insert_option'),
       names=', \n'.join([self._fix_f_name(f) for f in fields]),
       values=', \n'.join([':' + str(val) for val in values]),
     )
@@ -176,7 +177,7 @@ class OracleConn(DBConn):
         counter += len(data)
 
       if commit:
-        self.connection.commit()
+        connection.commit()
       else:
         return counter
 
@@ -185,7 +186,9 @@ class OracleConn(DBConn):
       raise e
 
     finally:
-      self.connection.autocommit = True
+      cursor.close()
+      connection.commit()
+      connection.close()
 
     secs = (datetime.datetime.now() - s_t).total_seconds()
     mins = round(secs / 60, 1)
@@ -225,10 +228,13 @@ class OracleConn(DBConn):
     values = [i + 1
               for i in range(len(fields))] if mode == 'namedtuple' else fields
 
-    self.connection.autocommit = False
-    cursor = self.get_cursor()
+    
+    connection = self.engine.raw_connection()
+    connection.autocommit = False
+    cursor = connection.cursor()
+
     pk_fields_set = set(pk_fields)
-    sql = self.template('core.replace').format(
+    sql = self._template('core.replace').format(
       table=table,
       name_values=',\n'.join(
         [':{} as {}'.format(values[i], f) for i, f in enumerate(fields)]),
@@ -274,7 +280,7 @@ class OracleConn(DBConn):
         counter += len(data)
 
       if commit:
-        self.connection.commit()
+        connection.commit()
       else:
         return counter
 
@@ -283,7 +289,9 @@ class OracleConn(DBConn):
       raise e
 
     finally:
-      self.connection.autocommit = True
+      cursor.close()
+      connection.commit()
+      connection.close()
 
     secs = (datetime.datetime.now() - s_t).total_seconds()
     mins = round(secs / 60, 1)

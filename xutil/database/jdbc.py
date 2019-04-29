@@ -163,7 +163,7 @@ class JdbcConn(DBConn):
     #   r_dict['column_order'] = column_order
     #   return Rec(**r_dict)
 
-    # sql_tmpl = self.template('metadata.primary_keys')
+    # sql_tmpl = self._template('metadata.primary_keys')
     # if sql_tmpl:
     #   rows = self.select(sql_tmpl.format(table=table, schema=schema))
     # else:
@@ -201,7 +201,7 @@ class JdbcConn(DBConn):
     #     r_dict['column_order'] = i + 1
     #     yield Rec(**r_dict)
 
-    # sql_tmpl = self.template('metadata.indexes')
+    # sql_tmpl = self._template('metadata.indexes')
     # if sql_tmpl:
     #   rows = self.select(sql_tmpl.format(table=table, schema=schema))
     # else:
@@ -224,7 +224,7 @@ class JdbcConn(DBConn):
     self._fields = Rec._fields
     schema, table = self._split_schema_table(table_name)
 
-    sql_tmpl = self.template('metadata.ddl')
+    sql_tmpl = self._template('metadata.ddl')
     if sql_tmpl:
       rows = self.select(
         sql_tmpl.format(
