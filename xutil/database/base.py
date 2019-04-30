@@ -47,6 +47,7 @@ class DBConn(object):
   """Base class for database connections"""
 
   _fix_f_name = lambda self, f: f
+  _to_text = lambda self, t: t
 
   def __init__(self, conn_dict, profile=None, echo=False):
     "Inititate connection"
@@ -882,14 +883,16 @@ class DBConn(object):
       t2_field_arr = ['t2.' + f for f in t2_field.split(',')]
       t1_field_concat = self._concat_fields(t1_field_arr, as_text=as_text)
       t2_field_concat = self._concat_fields(t2_field_arr, as_text=as_text)
+      to_text = self._to_text
+
       if lowercase:
         conds = ' and '.join([
-          'lower({}) = lower({})'.format(f, t2_field_arr[i])
+          'lower({}) = lower({})'.format(to_text(f), to_text(t2_field_arr[i]))
           for i, f in enumerate(t1_field_arr)
         ])
       else:
         conds = ' and '.join([
-          '{} = {}'.format(f, t2_field_arr[i])
+          '{} = {}'.format(to_text(f), to_text(t2_field_arr[i]))
           for i, f in enumerate(t1_field_arr)
         ])
       t1_fields1 = t1_field

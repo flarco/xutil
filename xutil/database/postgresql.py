@@ -58,6 +58,8 @@ def make_batch_df(rows, _fields):
 class PostgreSQLConn(DBConn):
   "PostgreSQL Connection"
 
+  _to_text = lambda self, t: t+'::text'
+
   data_map = dict(
     string='VARCHAR',
     integer='integer',
@@ -528,5 +530,5 @@ class PostgreSQLConn(DBConn):
 
   def _concat_fields(self, fields, as_text=False):
     if as_text:
-      fields = ['{}::text'.format(f) for f in fields]
+      fields = [self._to_text(f) for f in fields]
     return ' || '.join(fields)
