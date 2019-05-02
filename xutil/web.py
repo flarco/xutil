@@ -462,7 +462,7 @@ class WebApp:
     self.on = self.sio.on
     self.emit = self.sio.emit
 
-  def run(self, port, debug=True, url_suffix='', **kwargs):
+  def run(self, port, host='0.0.0.0', debug=True, url_suffix='', **kwargs):
     import eventlet, socketio
     import eventlet.wsgi
 
@@ -475,7 +475,8 @@ class WebApp:
     self.log = get_kw('log', self.log, kwargs)
 
     self.port = int(port)
-    self.base_url = 'http://{}:{}'.format(socket.gethostname(), self.port)
+    hostname = socket.gethostname() if host == '0.0.0.0' else host
+    self.base_url = 'http://{}:{}'.format(hostname, self.port)
 
     # remember to use DEBUG mode for templates auto reload
     # https://github.com/lepture/python-livereload/issues/144
@@ -486,7 +487,7 @@ class WebApp:
     log('*Web Server PID is {}'.format(os.getpid()))
     log("*URL -> " + self.base_url + url_suffix)
 
-    eventlet.wsgi.server(eventlet.listen(('0.0.0.0', self.port)), app)
+    eventlet.wsgi.server(eventlet.listen((host, self.port)), app)
 
   def proc_request(self):
     return process_request(self.request)
