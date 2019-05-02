@@ -457,12 +457,16 @@ class WebApp:
     self.render_template = render_template
     self.send_from_directory = send_from_directory
 
+    if os.getenv('SECURE_SSL_REDIRECT', default=False):
+      from flask_sslify import SSLify
+      sslify = SSLify(self.flask_app)
+
     # Wrapper functions
     self.route = self.flask_app.route
     self.on = self.sio.on
     self.emit = self.sio.emit
 
-  def run(self, port, host='0.0.0.0', debug=True, url_suffix='', **kwargs):
+  def run(self, port, host='0.0.0.0', debug=False, url_suffix='', **kwargs):
     import eventlet, socketio
     import eventlet.wsgi
 

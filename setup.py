@@ -12,7 +12,8 @@ hive = [
 web = [
   "python-socketio",
   "eventlet",
-  "scrapy"
+  "scrapy",
+  "Flask-SSLify"
 ]
 aws = [
   "PyAthenaJDBC"
@@ -21,7 +22,7 @@ spark = [
   "pyspark"
 ]
 
-version = '0.0.8'
+version = '0.0.9'
 
 setup(
   name='xutil',
