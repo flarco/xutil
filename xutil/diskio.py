@@ -14,6 +14,7 @@ from yaml import (
   Loader,
   SafeLoader,
 )
+from ruamel.yaml import YAML
 
 from xutil.helpers import log, now
 
@@ -40,8 +41,9 @@ SafeLoader.add_constructor(u'tag:yaml.org,2002:str', construct_yaml_str)
 
 def write_yaml(path, dict_):
   """Save a dict to a YAML file"""
-  text = yaml.dump(dict_, default_flow_style=False)
-  write_file(path, text, echo=True)
+  yaml = YAML()
+  with open(path, mode='w', encoding='utf8') as f:
+    text = yaml.dump(dict_, f)
 
 
 def get_zip_path(path):
@@ -54,14 +56,15 @@ def get_zip_path(path):
 
 def read_yaml(path):
   """Load from a YAML file, return dict"""
+  yaml = YAML()
   if '.zip' in path.lower():
     Z = zipimporter(get_zip_path(path))
     file = BytesIO(Z.get_data(path))
-    dict_ = yaml.load(file, Loader=yaml.SafeLoader)
+    dict_ = yaml.load(file)
     return dict_
 
   with open(path) as file:
-    dict_ = yaml.load(file, Loader=yaml.SafeLoader)
+    dict_ = yaml.load(file)
   return dict_
 
 
