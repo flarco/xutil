@@ -21,7 +21,7 @@ spark = [
   "pyspark"
 ]
 
-version = '0.0.7'
+version = '0.0.8'
 
 setup(
   name='xutil',
@@ -42,7 +42,7 @@ setup(
     "verboselogs", "coloredlogs", "psutil", "jmespath", "jsonlines",
     "paramiko", "redis", "cx_Oracle", "psycopg2", "pymongo", "requests",
     "hdfs", "sqlalchemy", "prettytable", "pyarrow", "s3fs",
-    "sqlparse", "scp"
+    "sqlparse", "scp", "ruamel.yaml", "pandas"
   ],
   extras_require={
     'jdbc': jdbc,  # needs gcc and g++ to be installed
