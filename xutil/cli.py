@@ -78,7 +78,7 @@ def exec_sql():
   SqlCmdParser()
 
 def profile_entry():
-  from xutil.helpers import get_databases
+  from xutil.helpers import load_profile, save_profile
   from collections import OrderedDict
   import urllib.parse as urlparse
   import yaml
@@ -88,12 +88,12 @@ def profile_entry():
   parser.add_argument('--url', help='the URL')
   parser.add_argument('--name', help='Database Name')
   parser.add_argument('--url_type', help='Type of URL (SQL Alchemy is default)')
+  parser.add_argument('--add', action='store_true', help='Whether to add to current profile.yaml')
   args = parser.parse_args()
 
   if not (args.url and args.name):
     raise Exception("Need to provide --url and --name")
   
-  databases = get_databases()
   url_vars = urlparse.urlparse(args.url)
 
   prof = {}
@@ -118,7 +118,13 @@ def profile_entry():
     prof['url'] = f"jdbc:postgresql://{prof['host']}:{prof['port']}/{prof['database']}"
     prof['sa_url'] = args.url
 
-  print(yaml.dump({args.name : prof}))
+  if args.add:
+    profile_yaml = load_profile()
+    profile_yaml['databases'][args.name] = prof
+    save_profile(profile_yaml)
+    log('+ Set "{}" in profile.yaml'.format(args.name))
+  else:
+    print(yaml.dump({args.name : prof}))
 
 def exec_etl():
   from xutil.database.etl import EtlCmdParser
