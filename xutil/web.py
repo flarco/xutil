@@ -93,6 +93,13 @@ def extract_text_from_html(html_source):
   text = "\r\n".join(filter(visible, texts))
   return text
 
+def css_select(body, css_string):
+  from scrapy.selector import Selector
+  return Selector(text=body).css(css_string)
+
+def css_value(row, css_string):
+   return row.css(css_string)[0].extract().strip() if row.css(css_string) else None
+
 
 ## EMail ################
 
