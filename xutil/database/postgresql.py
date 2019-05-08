@@ -146,7 +146,8 @@ class PostgreSQLConn(DBConn):
   object_type_map = {'TABLE': 'BASE TABLE', 'VIEW': 'VIEW'}
 
   def set_variables(self):
-    self.connection.autocommit = True
+    self.connection.autocommit = False
+    self.connection.execute('commit')
 
     self.batch_size = 50000
 

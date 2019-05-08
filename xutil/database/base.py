@@ -106,7 +106,6 @@ class DBConn(object):
     """Connect to Database"""
     self.engine = self.get_engine()
     self.connection = self.engine.connect()
-    self.connection.autocommit = False
   
   def close(self):
     """Close database connection"""
