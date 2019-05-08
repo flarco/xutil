@@ -204,7 +204,7 @@ class PostgreSQLConn(DBConn):
         sslmode=self._cred.sslmode,
       ))
 
-    self.engine = sqlalchemy.create_engine(conn_str, echo=echo)
+    self.engine = sqlalchemy.create_engine(conn_str, isolation_level="READ COMMITTED", echo=echo)
 
     return self.engine
 
