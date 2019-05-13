@@ -119,7 +119,7 @@ class Spark:
   @classmethod
   def set_sparkenv(cls, spark_home=None):
     import urllib.request, subprocess
-    URL = 'http://apache.claz.org/spark/spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz'
+    URL = 'http://apache.claz.org/spark/spark-2.4.3/spark-2.4.3-bin-hadoop2.7.tgz'
     spark_home = spark_home or os.environ.get('SPARK_HOME', None)
 
     if not spark_home:
@@ -701,7 +701,7 @@ class Spark:
       ignoreTrailingWhiteSpace=ignoreTrailingWhiteSpace,
     )
 
-    if self.version >= 2.2: params['multiLine'] = True
+    if self.version >= '2.2': params['multiLine'] = True
     df = self.spark.read.csv(**params)
 
     df = self.process_df_fields(df, date_cols, timestamp_cols, dateFormat,
