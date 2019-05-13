@@ -15,6 +15,7 @@ from xutil.helpers import (
   get_databases,
   get_kw,
   get_db_profile,
+  load_profile,
   struct)
 from xutil.diskio import (
   read_yaml, read_file, write_csv,
@@ -99,24 +100,18 @@ def exec_sql(
 
   dbs = get_databases()
 
-  if database.upper() in conns:
-    conn = conns[database.upper()]
-  elif os.getenv('PROFILE_YAML'):
+  if database in get_databases():
     conn = get_conn(
-      database.upper(),
+      database,
       use_spark=True,
       echo=True,
     )
-  elif not os.getenv('PROFILE_YAML'):
-    log("Environment variable 'PROFILE_YAML' not found!")
-    log("Exiting.")
-    sys.exit(1)
   else:
     log("Database is not supported!")
     log("Exiting.")
     sys.exit(1)
 
-  conns[database.upper()] = conn
+  conns[database] = conn
   fields, rows = conn.execute(
     sql,
     dtype='tuple',
@@ -355,7 +350,7 @@ def ff_to_db(src_ff, src_deli, tgt_db, tgt_table,
     conn = get_conn(tgt_db_prof.name)
     sparko = conn.sparko
   else:
-    sparko = Spark(hive_enabled=False, version=2.2)
+    sparko = Spark(hive_enabled=False)
   log("Loading file {}..".format(src_ff))
 
   df1 = sparko.read_csv2(
@@ -382,12 +377,12 @@ def ff_to_db(src_ff, src_deli, tgt_db, tgt_table,
       tgt_table,
       tgt_mode=tgt_mode,
       order_by=order_by,
-      partitions=get_kw('partitions', None, 5),
+      partitions=get_kw('partitions', 5, kwargs),
       truncate=get_kw('truncate', None, kwargs),
       count_recs=get_kw('count_recs', None, kwargs),
       grant_sql=get_kw('grant_sql', None, kwargs),
       post_sql=get_kw('post_sql', None, kwargs),
-      tot_cnt=get_kw('tot_cnt', None, tot_cnt),
+      tot_cnt=get_kw('tot_cnt', 0, kwargs),
       log=log)
 
   return dict(completed=True)
@@ -811,7 +806,7 @@ class SqlCmdParser(object):
       parser.print_help()
       sys.exit(1)
 
-    if args.database.upper() != 'SPARK' and not args.user and not os.getenv('PROFILE_YAML'):
+    if args.database != 'SPARK' and not args.user:
       log("Need to specify user name with flag --user", color='red')
       log("Exiting.", color='red')
       sys.exit(1)
@@ -845,14 +840,6 @@ class EtlCmdParser(object):
       print('Unrecognized command!')
       parser.print_help()
       exit(1)
-
-    if not os.getenv('PROFILE_YAML'):
-      log("Env Variable PROFILE_YAML must be set.")
-      log(
-        "PROFILE_YAML should be the path of the file containing database profiles / credentials."
-      )
-      log("Exiting.")
-      sys.exit(1)
 
     # use dispatch pattern to invoke method with same name
     getattr(self, command)()
@@ -942,6 +929,11 @@ class EtlCmdParser(object):
       '--append',
       help='Append to existing table. Default is "overwrite".',
       action='store_true')
+    
+    parser.add_argument(
+      '--remove_cr',
+      help='Remove carriage return from Flat file.',
+      action='store_true')
 
     # now that we're inside a subcommand, ignore the first
     args = parser.parse_args(sys.argv[2:])
@@ -950,6 +942,9 @@ class EtlCmdParser(object):
       log("Need to specify src_ff and tgt_db and tgt_table.")
       parser.print_help()
       sys.exit(1)
+    
+    if args.remove_cr:
+      remove_cr(args.src_ff)
 
     ff_to_db(
       src_ff=args.src_ff,
@@ -1024,7 +1019,7 @@ def clean_file_1(file_path, log=log):
 
 def remove_cr(file_path, log=log):
   log('Removing \\r character from {}'.format(file_path))
-  os.system('sed -i "s/\\r//g" {}'.format(file_path))  # fix whole file
+  os.system('''perl -i -pe 's/\\r//' {}'''.format(file_path))  # fix whole file
 
 
 def gzip_file(file_path, log=log):
