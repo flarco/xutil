@@ -6,7 +6,7 @@ from unittest.mock import patch
 from xutil.helpers import file_exists, epoch, get_dir_path
 from xutil.diskio import *
 
-from collections import namedtuple
+from recordclass import recordclass as namedtuple
 
 
 class TestDiskIO(unittest.TestCase):
