@@ -41,7 +41,7 @@ setup(
                                      'README.rst')).read(),
   install_requires=[
     "verboselogs", "coloredlogs", "psutil", "jmespath", "jsonlines",
-    "paramiko", "redis", "cx_Oracle", "psycopg2", "pymongo", "requests",
+    "paramiko", "redis", "cx_Oracle", "psycopg2-binary", "pymongo", "requests",
     "hdfs", "sqlalchemy", "prettytable", "pyarrow", "s3fs",
     "sqlparse", "scp", "ruamel.yaml", "pandas", "recordclass"
   ],
