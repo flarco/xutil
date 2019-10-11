@@ -45,7 +45,7 @@ class SQLiteConn(DBConn):
     if not conn_str:
       conn_str = ('sqlite:///' + self._cred.database)
 
-    self.engine = sqlalchemy.create_engine(conn_str, echo=echo)
+    self.engine = sqlalchemy.create_engine(conn_str, connect_args={'timeout': 7}, echo=echo)
 
     return self.engine
 
