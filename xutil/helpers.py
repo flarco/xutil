@@ -40,7 +40,7 @@ jdumps = lambda obj: json.dumps(obj, cls=MyJSONEncoder)
 jloads = lambda obj: json.loads(obj)
 jtrans = lambda obj: jloads(jdumps(obj))
 is_gen_func = lambda x: str(x).startswith('<generator ')
-get_profile = lambda create_if_missing=False: load_profile(create_if_missing=create_if_missing)
+get_profile = lambda create_if_missing=False, def_profl_path=None: load_profile(create_if_missing=create_if_missing, def_profl_path=def_profl_path)
 get_kw = lambda k, deflt, kwargs: kwargs[k] if k in kwargs else deflt
 
 get_script_path = lambda: os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -349,9 +349,9 @@ def save_profile(data):
   write_yaml(profl_path, data)
 
 
-def load_profile(raw_text=False, create_if_missing=False):
+def load_profile(raw_text=False, create_if_missing=False, def_profl_path=None):
   if not os.getenv('PROFILE_YAML'):
-    def_profl_path = get_home_path() + '/profile.yaml'
+    def_profl_path = def_profl_path or get_home_path() + '/profile.yaml'
     templ_path = get_dir_path(__file__) + '/database/templates/profile.def.yaml'
     if not file_exists(def_profl_path) and create_if_missing:
       write_file(def_profl_path, read_file(templ_path))
