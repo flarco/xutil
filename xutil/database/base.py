@@ -508,6 +508,7 @@ class DBConn(object):
         counter += 1
         yield row
         if limit and counter == limit:
+          cursor.close()
           break
         row = cursor.fetchone()
 
