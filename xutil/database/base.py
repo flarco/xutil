@@ -505,6 +505,7 @@ class DBConn(object):
     s_t = datetime.datetime.now()
 
     _data = list(self.stream(sql, dtype=dtype, echo=False, limit=limit))
+    self.result.close()
 
     fields = self._fields
     if not fields: return []
