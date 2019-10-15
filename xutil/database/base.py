@@ -480,9 +480,12 @@ class DBConn(object):
           for row in rows:
             self._stream_counter += 1
             yield make_rec(row)
+          self.result.close()
       else:
+        self.result.close()
         break
       if limit:
+        self.result.close()
         break
 
     # log('Stream finished at {} records.'.format(self._stream_counter))
@@ -500,17 +503,6 @@ class DBConn(object):
 
     self.reconnect(min_tresh=10)
     s_t = datetime.datetime.now()
-
-    def get_rows(cursor):
-      counter = 0
-      row = cursor.fetchone()
-      while row:
-        counter += 1
-        yield row
-        if limit and counter == limit:
-          cursor.close()
-          break
-        row = cursor.fetchone()
 
     _data = list(self.stream(sql, dtype=dtype, echo=False, limit=limit))
 
