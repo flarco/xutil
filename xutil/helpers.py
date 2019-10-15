@@ -351,7 +351,7 @@ def save_profile(data):
 
 def load_profile(raw_text=False, create_if_missing=False, def_profl_path=None):
   if not os.getenv('PROFILE_YAML'):
-    def_profl_path = def_profl_path or get_home_path() + '/profile.yaml'
+    def_profl_path = def_profl_path if def_profl_path else get_home_path() + '/profile.yaml'
     templ_path = get_dir_path(__file__) + '/database/templates/profile.def.yaml'
     if not file_exists(def_profl_path) and create_if_missing:
       write_file(def_profl_path, read_file(templ_path))
