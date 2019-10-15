@@ -487,7 +487,7 @@ class WebApp:
 
     self.port = int(port)
     hostname = socket.gethostname() if host == '0.0.0.0' else host
-    self.base_url = 'http://{}:{}'.format(hostname, self.port)
+    self.base_url = 'http://{}:{}'.format(host, self.port)
 
     # remember to use DEBUG mode for templates auto reload
     # https://github.com/lepture/python-livereload/issues/144
