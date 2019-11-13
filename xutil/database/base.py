@@ -784,15 +784,14 @@ class DBConn(object):
     rows = self.query(sql_tmpl)
     return rows
 
-  def get_all_tables(self):
+  def get_all_tables(self, filter, as_sql=False):
     "Get all tables / views"
     sql_tmpl = self._template('metadata.all_tables')
     if not sql_tmpl:
-      raise Exception('get_all_tables not implemented for {}'.format(
-        self.type))
+      raise Exception('get_all_tables not implemented for {}'.format(self.type))
 
-    rows = self.query(sql_tmpl)
-    return rows
+    sql = sql_tmpl.format(filter=filter)
+    return sql if as_sql else self.query(sql, echo=False)
 
   def analyze_fields(self,
                      analysis,

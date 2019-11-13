@@ -22,38 +22,13 @@ core:
 
 metadata:
   all_tables: |
-    with tables as (
-      select
-        owner,
-        table_name,
-        num_rows,
-        last_analyzed
-      from sys.all_tables
-    )
     select
-      col.owner as schema_name,
-      col.table_name as table_name,
-      case
-        when tables.table_name is null then 'VIEW'
-        else 'TABLE'
-      end as table_type,
-      count(col.column_name) as num_columns,
-      tables.num_rows as num_rows,
-      tables.last_analyzed
-    from sys.all_tab_columns col 
-    left join tables
-      on tables.owner = col.owner
-      and tables.table_name = col.table_name
-    group by
-      col.owner,
-      col.table_name, 
-      case
-        when tables.table_name is null then 'VIEW'
-        else 'TABLE'
-      end,
-      tables.num_rows,
-      tables.last_analyzed
-    order by col.owner, col.table_name
+      owner as schema_name,
+      table_name as table_name
+    from sys.all_tables
+    where lower(table_schema || '.' || table_name) like '%{filter}%' 
+    order by owner, table_name
+  
   all_columns: |
     with tables as (
       select
