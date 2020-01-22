@@ -27,7 +27,7 @@ databases:
     user: user
     password: password
     type: oracle
-    url: "jdbc:oracle:thin:@//edw1:1521/edw1_service"
+    jdbc_url: "jdbc:oracle:thin:@//edw1:1521/edw1_service"
 
   PG1:
     name: PG1
@@ -38,7 +38,7 @@ databases:
     password: password
     sslmode: disable
     type: postgresql
-    url: "jdbc:postgresql://host:port/database?&ssl=false"
+    jdbc_url: "jdbc:postgresql://host:port/database?&ssl=false"
 
   MSSQL1:
     name: MSSQL1
@@ -49,7 +49,7 @@ databases:
     password: password
     odbc_driver: ODBC Driver 13 for SQL Server
     type: sqlserver
-    url: "jdbc:jtds:sqlserver://mssql1:1433/master;user=user;password=password;instance=;useNTLMv2=true;domain=workgroup"
+    jdbc_url: "jdbc:jtds:sqlserver://mssql1:1433/master;user=user;password=password;instance=;useNTLMv2=true;domain=workgroup"
 
   SPARK_LOCAL:
     name: SPARK_LOCAL
@@ -81,7 +81,7 @@ databases:
     password: password
     sslmode: disable
     type: postgresql
-    url: "jdbc:postgresql://localhost:35432/test_db?&ssl=false"
+    jdbc_url: "jdbc:postgresql://localhost:35432/test_db?&ssl=false"
   
   ORCL_TEST:
     name: ORCL_TEST
@@ -91,7 +91,7 @@ databases:
     user: system
     password: oracle
     type: oracle
-    url: "jdbc:oracle:thin:@//localhost:31521//xe"
+    jdbc_url: "jdbc:oracle:thin:@//localhost:31521//xe"
 
   TESTS:
     EDW1:

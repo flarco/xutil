@@ -1,3 +1,47 @@
+# YAML File for database credentials
+# Here enter your database profiles, use proper URLs
+# databse type include: oracle, postgresql, sqlserver, hive, spark
+# jdbc URLS in case we want to use 'jaydebeapi'
+
+databases:
+  PG:
+    name: PG1
+    host: pg1
+    database: db1
+    port: 5432
+    user: user
+    password: password
+    sslmode: disable
+    type: postgresql
+    jdbc_url: "jdbc:postgresql://host:port/database?&sslmode=false"
+  
+  ORCL1:
+    name: EDW1
+    host: edw1
+    port: 1521
+    service: edw1_service
+    user: user
+    password: password
+    type: oracle
+    jdbc_url: "jdbc:oracle:thin:@//edw1:1521/edw1_service"
+
+  MSSQL1:
+    name: MSSQL1
+    host: mssql1
+    database: master
+    port: 1433
+    user: user
+    password: password
+    odbc_driver: ODBC Driver 13 for SQL Server
+    type: sqlserver
+    jdbc_url: "jdbc:jtds:sqlserver://mssql1:1433/master;user=user;password=password;instance=;useNTLMv2=true;domain=workgroup"
+
+environment:
+  ETL_TEMP_DIR: /tmp
+
+variables:
+  tmp_folder: /tmp
+
 # leave this alone, unless you want to change the JARs
 drivers:
   oracle:
@@ -15,25 +59,3 @@ drivers:
   sqlite:
     path: jars/sqlite-jdbc-3.23.1.jar
     class: org.sqlite.JDBC
-
-# Here enter your database profiles, use proper JDBC URLs
-# databse type include: oracle, postgresql, sqlserver, hive, spark
-databases:
-
-  PG:
-    name: PG1
-    host: pg1
-    database: db1
-    port: 5432
-    user: user
-    password: password
-    sslmode: disable
-    type: postgresql
-    url: "jdbc:postgresql://host:port/database?&ssl=false"
-
-environment:
-  ETL_TEMP_DIR: /tmp
-
-variables:
-  tmp_folder: /tmp
-

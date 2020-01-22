@@ -16,7 +16,7 @@ PG1:
   user: user
   password: password
   type: postgresql
-  url: "jdbc:postgresql://host:port/database?&ssl=false"
+  jdbc_url: "jdbc:postgresql://host:port/database?&ssl=false"
 ```
 
 ## SQL Server

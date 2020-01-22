@@ -33,7 +33,7 @@ class JdbcConn(DBConn):
 
     self.connection = jaydebeapi.connect(
       profile['drivers'][cred.type]['class'],
-      cred.url,
+      cred.jdbc_url,
       [cred.user, cred.password],
       jar_path,
     )
