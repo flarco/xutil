@@ -596,44 +596,66 @@ class DBConn(object):
 
   def get_tables(self, schema, echo=True):
     "Get metadata for tables."
-    Rec = namedtuple('Table', 'schema table')
-    self._fields = Rec._fields
+    schemas = schema if isinstance(schema, list) else [schema]
 
-    def get_rec(table):
-      r_dict = dict(schema=schema, table=table)
-      return Rec(**r_dict)
+    def get_tables_for(schema):
+      def get_rec(table):
+        self._fields = ['schema', 'table']
+        return tuple([schema, table])
 
-    sql_tmpl = self._template('metadata.tables')
-    if sql_tmpl:
-      tables = self.query(sql_tmpl.format(schema=schema))
-      if hasattr(self, '_std_get_tables'):
-        tables = self._std_get_tables(schema, tables)
-    else:
-      self.get_engine(echo=echo)
-      tables = self.engine_inspect.get_table_names(schema)
+        # Getting pickle.PicklingError: Can't pickle <class 'xutil.database.base.Table'>
+        Rec = namedtuple('Table', 'schema table')
+        self._fields = Rec._fields
+        r_dict = dict(schema=schema, table=table)
+        return Rec(**r_dict)
 
-    rows = [get_rec(t) for t in sorted(tables)]
-    self._fields = Rec._fields
+      sql_tmpl = self._template('metadata.tables')
+      if sql_tmpl:
+        tables = self.query(sql_tmpl.format(schema=schema))
+        if hasattr(self, '_std_get_tables'):
+          tables = self._std_get_tables(schema, tables)
+      else:
+        self.get_engine(echo=echo)
+        tables = self.engine_inspect.get_table_names(schema)
+      
+      return [get_rec(v) for v in sorted(tables)]
+    
+    rows = []
+    for schema in schemas:
+      for row in get_tables_for(schema):
+        rows.append(row)
+
     return rows
 
   def get_views(self, schema, echo=True):
     "Get metadata for views."
-    Rec = namedtuple('View', 'schema view')
-    self._fields = Rec._fields
+    schemas = schema if isinstance(schema, list) else [schema]
 
-    def get_rec(view):
-      r_dict = dict(schema=schema, view=view)
-      return Rec(**r_dict)
+    def get_views_for(schema):
+      def get_rec(view):
+        self._fields = ['schema', 'view']
+        return tuple([schema, view])
 
-    sql_tmpl = self._template('metadata.views')
-    if sql_tmpl:
-      views = [r[0] for r in self.query(sql_tmpl.format(schema=schema))]
-    else:
-      self.get_engine(echo=echo)
-      views = self.engine_inspect.get_view_names(schema)
+        # pickle.PicklingError: Can't pickle <class 'xutil.database.base.View'>
+        Rec = namedtuple('View', 'schema view')
+        self._fields = Rec._fields
+        r_dict = dict(schema=schema, view=view)
+        return Rec(**r_dict)
 
-    rows = [get_rec(v) for v in sorted(views)]
-    self._fields = Rec._fields
+      sql_tmpl = self._template('metadata.views')
+      if sql_tmpl:
+        views = [r[0] for r in self.query(sql_tmpl.format(schema=schema))]
+      else:
+        self.get_engine(echo=echo)
+        views = self.engine_inspect.get_view_names(schema)
+      
+      return [get_rec(v) for v in sorted(views)]
+
+    rows = []
+    for schema in schemas:
+      for row in get_views_for(schema):
+        rows.append(row)
+    
     return rows
 
   def get_columns(self,
