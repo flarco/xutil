@@ -884,7 +884,7 @@ class Spark:
 
           df_null = self.spark.read \
             .format("jdbc") \
-            .option("url", db_profile['url']) \
+            .option("url", db_profile['jdbc_url']) \
             .option("dbtable", null_sql_table) \
             .option("user", db_profile['user']) \
             .option("password", db_profile['password']) \
@@ -896,7 +896,7 @@ class Spark:
 
       df = self.spark.read \
         .format("jdbc") \
-        .option("url", db_profile['url']) \
+        .option("url", db_profile['jdbc_url']) \
         .option("dbtable", sql_table) \
         .option("user", db_profile['user']) \
         .option("password", db_profile['password']) \
@@ -909,7 +909,7 @@ class Spark:
     else:
       df = self.spark.read \
         .format("jdbc") \
-        .option("url", db_profile['url']) \
+        .option("url", db_profile['jdbc_url']) \
         .option("dbtable", sql_table) \
         .option("user", db_profile['user']) \
         .option("password", db_profile['password']) \
@@ -978,7 +978,7 @@ class Spark:
     partitions = partitions if order_by else 1
     df.repartition(partitions).write \
       .format("jdbc") \
-      .option("url", db_profile['url']) \
+      .option("url", db_profile['jdbc_url']) \
       .option("dbtable", sql_table) \
       .option("user", db_profile['user']) \
       .option("password", db_profile['password']) \
