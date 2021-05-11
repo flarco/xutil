@@ -969,6 +969,10 @@ def get_conn(db,
     from .jdbc import JdbcConn
     conn = JdbcConn(db_dict, profile=profile)
 
+  elif db_dict.type.lower() == 'snowflake':
+    from .snowflake import SnowflakeConn
+    conn = SnowflakeConn(db_dict, echo=echo)
+
   elif db_dict.type.lower() == 'oracle':
     from .oracle import OracleConn
     conn = OracleConn(db_dict, echo=echo)
