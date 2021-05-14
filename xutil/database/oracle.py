@@ -53,29 +53,6 @@ class OracleConn(DBConn):
       fname = fname[:30]
     return fname
 
-  # def connect(self):
-  #   "Connect / Re-Connect to Database"
-  #   import cx_Oracle
-
-  #   # get_conn_str = lambda cred: '{}/{}@{}'.format(cred.user, cred.password, cred.name)
-
-  #   def get_conn_str(cred):
-  #     if 'service' in cred:
-  #       dns_str = cx_Oracle.makedsn(
-  #         cred.host, cred.port, service_name=cred.service)
-  #     elif 'sid' in cred:
-  #       dns_str = cx_Oracle.makedsn(cred.host, cred.port, sid=cred.sid)
-  #     return '{}/{}@{}'.format(cred.user, cred.password, dns_str)
-
-  #   conn_str = get_conn_str(struct(self._cred)) if isinstance(
-  #     self._cred, dict) else self._cred
-  #   self.connection = cx_Oracle.connect(conn_str)
-  #   self.cursor = None
-
-  #   self.connection.autocommit = True
-  #   self.name = self._cred['name'] if isinstance(
-  #     self._cred, dict) else self.connection.tnsentry
-  #   self.username = self.connection.username
 
   def get_dialect(self, echo=False):
     """SQLAlchemy dialect"""

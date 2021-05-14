@@ -41,7 +41,7 @@ _fw = lambda sep, _fwkop, **kws: sep.join([_fwkop(k, v) for k, v in kws.items()]
 fwa = lambda _fwkop=_fwkeq, **kws: _fw(' and ', _fwkop, **kws)  # Format WHERE AND
 fwo = lambda _fwkop=_fwkeq, **kws: _fw(' or ', _fwkop, **kws)  # Format WHERE OR
 rows_to_dicts = lambda rows: [row._asdict() for row in rows]
-
+Record = namedtuple('Record', '')
 
 class DBConn(object):
   """Base class for database connections"""

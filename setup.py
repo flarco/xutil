@@ -41,6 +41,10 @@ setup(
                                      'README.rst')).read(),
   install_requires=[
     "verboselogs==1.7",
+    "python-socketio==1.8.4",
+    "python-engineio==3.11.2",
+    "snowflake-connector-python==2.1.3",
+    "snowflake-sqlalchemy==v1.2.4",
     "coloredlogs==10.0",
     "psutil==5.6.3",
     "jmespath==0.9.4",
