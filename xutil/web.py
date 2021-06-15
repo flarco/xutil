@@ -123,7 +123,7 @@ def send_email_html(smtp,
   msgRoot = MIMEMultipart('related')
   msgRoot['Subject'] = subject
   msgRoot['From'] = strFrom
-  msgRoot['To'] = strTo
+  msgRoot['To'] = ', '.join(strTo)
   msgRoot.preamble = 'This is a multi-part message in MIME format.'
 
   # Encapsulate the plain and HTML versions of the message body in an
